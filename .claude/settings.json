@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/user/Desktop/���祭�� ������/**)",
+      "PowerShell(pip install yfinance pandas numpy --quiet)",
+      "PowerShell(python -c \"import yfinance; print\\(yfinance.__version__\\)\")"
+    ]
+  }
+}

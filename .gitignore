@@ -1,0 +1,14 @@
+.env
+.env.*
+*.bak
+*.bak.*
+*.save
+__pycache__/
+*.pyc
+venv/
+logs/
+data/
+models/*.pkl
+.aider*
+.vscode/
+_batch_backtest.log

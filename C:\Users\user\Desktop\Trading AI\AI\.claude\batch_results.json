@@ -1,0 +1,415 @@
+{
+  "all": [
+    {
+      "ticker": "PLZL",
+      "trades": 4,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 2,
+      "losses": 2
+    },
+    {
+      "ticker": "OZON",
+      "trades": 2,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 2
+    },
+    {
+      "ticker": "SVCB",
+      "trades": 5,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 5
+    },
+    {
+      "ticker": "SMLT",
+      "trades": 2,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 1,
+      "losses": 1
+    },
+    {
+      "ticker": "VKCO",
+      "trades": 8,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 4,
+      "losses": 4
+    },
+    {
+      "ticker": "RNFT",
+      "trades": 6,
+      "wr": 66.66666666666666,
+      "pf": 6.0,
+      "mean_r": 1.6666666666666667,
+      "wins": 4,
+      "losses": 2
+    },
+    {
+      "ticker": "SIBN",
+      "trades": 2,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 2
+    },
+    {
+      "ticker": "HEAD",
+      "trades": 7,
+      "wr": 28.57142857142857,
+      "pf": 0.7687528975428838,
+      "mean_r": -0.16517650175508303,
+      "wins": 2,
+      "losses": 5
+    },
+    {
+      "ticker": "SPBE",
+      "trades": 9,
+      "wr": 44.44444444444444,
+      "pf": 1.6229607250755316,
+      "mean_r": 0.3460892917086287,
+      "wins": 4,
+      "losses": 5
+    },
+    {
+      "ticker": "FESH",
+      "trades": 13,
+      "wr": 7.6923076923076925,
+      "pf": 0.25,
+      "mean_r": -0.6923076923076923,
+      "wins": 1,
+      "losses": 12
+    },
+    {
+      "ticker": "ENPG",
+      "trades": 3,
+      "wr": 100.0,
+      "pf": 7891147540.983614,
+      "mean_r": 2.6303825136612047,
+      "wins": 3,
+      "losses": 0
+    },
+    {
+      "ticker": "WUSH",
+      "trades": 2,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 1,
+      "losses": 1
+    },
+    {
+      "ticker": "LENT",
+      "trades": 2,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 2
+    },
+    {
+      "ticker": "MSNG",
+      "trades": 9,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 9
+    },
+    {
+      "ticker": "LSRG",
+      "trades": 10,
+      "wr": 30.0,
+      "pf": 1.2233953097262433,
+      "mean_r": 0.15637671680837043,
+      "wins": 3,
+      "losses": 7
+    },
+    {
+      "ticker": "RAGR",
+      "trades": 6,
+      "wr": 16.666666666666664,
+      "pf": 0.6,
+      "mean_r": -0.3333333333333333,
+      "wins": 1,
+      "losses": 5
+    },
+    {
+      "ticker": "NMTP",
+      "trades": 9,
+      "wr": 22.22222222222222,
+      "pf": 0.8571428571428571,
+      "mean_r": -0.1111111111111111,
+      "wins": 2,
+      "losses": 7
+    },
+    {
+      "ticker": "ASTR",
+      "trades": 4,
+      "wr": 25.0,
+      "pf": 1.0,
+      "mean_r": 0.0,
+      "wins": 1,
+      "losses": 3
+    },
+    {
+      "ticker": "CNRU",
+      "trades": 3,
+      "wr": 33.33333333333333,
+      "pf": 1.5,
+      "mean_r": 0.3333333333333333,
+      "wins": 1,
+      "losses": 2
+    },
+    {
+      "ticker": "SELG",
+      "trades": 7,
+      "wr": 71.42857142857143,
+      "pf": 6.593434343434341,
+      "mean_r": 1.5981240981240974,
+      "wins": 5,
+      "losses": 2
+    },
+    {
+      "ticker": "MDMG",
+      "trades": 7,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 7
+    },
+    {
+      "ticker": "BSPB",
+      "trades": 8,
+      "wr": 62.5,
+      "pf": 3.7814145539177133,
+      "mean_r": 1.0430304577191425,
+      "wins": 5,
+      "losses": 3
+    },
+    {
+      "ticker": "RENI",
+      "trades": 7,
+      "wr": 28.57142857142857,
+      "pf": 0.7373942470389161,
+      "mean_r": -0.18757553782934563,
+      "wins": 2,
+      "losses": 5
+    },
+    {
+      "ticker": "EUTR",
+      "trades": 2,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 1,
+      "losses": 1
+    },
+    {
+      "ticker": "SOFL",
+      "trades": 5,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 5
+    },
+    {
+      "ticker": "MVID",
+      "trades": 4,
+      "wr": 50.0,
+      "pf": 1.8569152326322487,
+      "mean_r": 0.42845761631612433,
+      "wins": 2,
+      "losses": 2
+    },
+    {
+      "ticker": "IRKT",
+      "trades": 2,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 1,
+      "losses": 1
+    },
+    {
+      "ticker": "RASP",
+      "trades": 3,
+      "wr": 100.0,
+      "pf": 7990291262.135917,
+      "mean_r": 2.6634304207119723,
+      "wins": 3,
+      "losses": 0
+    },
+    {
+      "ticker": "BRZL",
+      "trades": 7,
+      "wr": 14.285714285714285,
+      "pf": 0.5319286871961101,
+      "mean_r": -0.3771219639592585,
+      "wins": 1,
+      "losses": 6
+    },
+    {
+      "ticker": "DATA",
+      "trades": 5,
+      "wr": 80.0,
+      "pf": 83.14386828449432,
+      "mean_r": 2.011833205305763,
+      "wins": 4,
+      "losses": 1
+    },
+    {
+      "ticker": "MSRS",
+      "trades": 17,
+      "wr": 29.411764705882355,
+      "pf": 0.6648614666577196,
+      "mean_r": -0.23656837647690382,
+      "wins": 5,
+      "losses": 12
+    },
+    {
+      "ticker": "GLRX",
+      "trades": 7,
+      "wr": 42.857142857142854,
+      "pf": 1.6619033671533472,
+      "mean_r": 0.3782304955161984,
+      "wins": 3,
+      "losses": 4
+    },
+    {
+      "ticker": "CHGZ",
+      "trades": 3,
+      "wr": 33.33333333333333,
+      "pf": 1.5,
+      "mean_r": 0.3333333333333333,
+      "wins": 1,
+      "losses": 2
+    },
+    {
+      "ticker": "HNFG",
+      "trades": 2,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 1,
+      "losses": 1
+    },
+    {
+      "ticker": "LEAS",
+      "trades": 2,
+      "wr": 50.0,
+      "pf": 0.0298507462686633,
+      "mean_r": -0.4850746268656683,
+      "wins": 1,
+      "losses": 1
+    },
+    {
+      "ticker": "MSTT",
+      "trades": 2,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 2
+    },
+    {
+      "ticker": "NAUK",
+      "trades": 5,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 5
+    },
+    {
+      "ticker": "RUSI",
+      "trades": 2,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 1,
+      "losses": 1
+    },
+    {
+      "ticker": "AKRN",
+      "trades": 10,
+      "wr": 50.0,
+      "pf": 3.0,
+      "mean_r": 1.0,
+      "wins": 5,
+      "losses": 5
+    },
+    {
+      "ticker": "SBERP",
+      "trades": 9,
+      "wr": 0.0,
+      "pf": 0.0,
+      "mean_r": -1.0,
+      "wins": 0,
+      "losses": 9
+    },
+    {
+      "ticker": "TATNP",
+      "trades": 4,
+      "wr": 75.0,
+      "pf": 4.052229456836098,
+      "mean_r": 0.7630573642090246,
+      "wins": 3,
+      "losses": 1
+    },
+    {
+      "ticker": "SNGSP",
+      "trades": 20,
+      "wr": 25.0,
+      "pf": 0.798595276382742,
+      "mean_r": -0.15105354271294347,
+      "wins": 5,
+      "losses": 15
+    },
+    {
+      "ticker": "BANEP",
+      "trades": 7,
+      "wr": 28.57142857142857,
+      "pf": 1.4199695121951217,
+      "mean_r": 0.2535081665516447,
+      "wins": 2,
+      "losses": 5
+    }
+  ],
+  "keepers": [
+    "RASP",
+    "ENPG",
+    "DATA",
+    "SELG",
+    "RNFT",
+    "TATNP",
+    "BSPB",
+    "PLZL",
+    "SMLT",
+    "VKCO",
+    "WUSH",
+    "EUTR",
+    "IRKT",
+    "HNFG",
+    "RUSI",
+    "AKRN",
+    "MVID",
+    "GLRX",
+    "SPBE",
+    "CNRU",
+    "CHGZ"
+  ],
+  "timestamp": "2026-07-10 20:38:34.319604"
+}
