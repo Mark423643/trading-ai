@@ -165,9 +165,10 @@ def send_signal_for_approval(sig: dict) -> bool:
         "Title": safe_title,
         "Priority": "5",
         "Tags": f"{d_tag},eyes,bell",
+        # HTTP headers не поддерживают UTF-8 → ASCII метки кнопок
         "Actions": (
-            f"view, ОДОБРИТЬ TV, {tv_url}, clear=true; "
-            f"view, ПРОПУСТИТЬ, https://ntfy.sh/{NTFY_TOPIC}, clear=true"
+            f"view, APPROVE (TV), {tv_url}, clear=true; "
+            f"view, SKIP, https://ntfy.sh/{NTFY_TOPIC}, clear=true"
         ),
     }
     try:
