@@ -122,7 +122,8 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 from config_trading import (
     ATR_EXHAUSTION, LEVEL_DIST, SMALL_BODY, VOID_MULTIPLIER,
-    STOP_ATR_FRAC, FB_LOOKBACK, APPROACH_BARS, ATR_PERIOD, TREND_EMA,
+    STOP_ATR_FRAC, FB_LOOKBACK, APPROACH_BARS, APPROACH_MAX_BODY,
+    ATR_PERIOD, TREND_EMA,
     LOOKBACK_PIVOT, RR_TARGET, LEVEL_COOLDOWN_BARS,
     MODEL_THRESHOLD, MODEL_PROB_MAX,
     TREND_FILTER_SHORTS, MIN_VOL_RATIO, RSI_LONG_MIN, RSI_SHORT_MAX,
@@ -130,6 +131,8 @@ from config_trading import (
     MOEX_TICKERS,
     MOEX_FUTURES,
     MOEX_FUTURES_PERPETUAL,
+    COMMISSION_PCT, SLIPPAGE_STEPS,
+    MAX_COST_RATIO, COST_RATIO_ACTION, COST_RR_OVERRIDE,
 )
 
 CHECK_LAST_N_BARS   = 720        # последние 30 дней H1-баров (для сканирования/статистики)
@@ -603,6 +606,13 @@ def scan_ticker(ticker, df1d, dfh):
     dfh["RSI14"]       = calc_rsi(dfh["Close"])
     dfh["EMA20_h"]     = dfh["Close"].ewm(span=20, adjust=False).mean()
 
+    # ── Дневной range "с открытия сессии до текущего часа" (для ATR_EXHAUSTION) ──
+    # Тимур: "атр конец" = сегодняшний high-low УЖЕ выработал X% от дневного ATR14.
+    # Это НЕ то же самое, что часовой ATR — считаем накопленный intraday range.
+    dfh["day_hi"] = dfh.groupby("date_key")["High"].cummax()
+    dfh["day_lo"] = dfh.groupby("date_key")["Low"].cummin()
+    dfh["day_range"] = dfh["day_hi"] - dfh["day_lo"]
+
     pivots = find_pivots(df1d, LOOKBACK_PIVOT)
     if len(pivots) == 0:
         return []
@@ -632,7 +642,9 @@ def scan_ticker(ticker, df1d, dfh):
 
         if np.isnan(atr_h) or np.isnan(atr_day) or atr_day == 0:
             continue
-        if atr_h >= ATR_EXHAUSTION * atr_day:
+        # ── "АТР конец": сегодняшний накопленный range (high-low) >= X% daily ATR14 ──
+        day_range = bar["day_range"]
+        if np.isnan(day_range) or day_range < ATR_EXHAUSTION * atr_day:
             continue
 
         dists = np.abs(lev_prices - bar["Close"]) / (bar["Close"] + 1e-9)
@@ -660,9 +672,13 @@ def scan_ticker(ticker, df1d, dfh):
             continue
 
         # ── Медленный подход: тела баров ДО ЛП маленькие (нет импульса) ──
+        # Тимур: "быстрый подход -> дальше не идём" — проверяем и среднее, и максимум,
+        # чтобы один импульсный бар в окне подхода не проходил незамеченным.
         _ap_start = max(0, lp_j - APPROACH_BARS)
         bodies = (dfh["Close"].iloc[_ap_start:lp_j] - dfh["Open"].iloc[_ap_start:lp_j]).abs()
         if len(bodies) > 0 and bodies.mean() >= SMALL_BODY * atr_h:
+            continue
+        if len(bodies) > 0 and bodies.max() >= APPROACH_MAX_BODY * atr_h:
             continue
 
         # ── Впереди пусто: до следующего уровня есть запас хода ──
@@ -719,6 +735,15 @@ def scan_ticker(ticker, df1d, dfh):
             continue
         target = entry + RR_TARGET * risk if is_long else entry - RR_TARGET * risk
 
+        # ── CostFilter: издержки не должны съедать неоправданную долю риска ──
+        _tick = moex_tick_size(entry)
+        _cost_ratio = (entry * COMMISSION_PCT * 2 + 2 * _tick * SLIPPAGE_STEPS) / risk if risk > 0 else 1.0
+        if _cost_ratio > MAX_COST_RATIO:
+            if COST_RATIO_ACTION == "increase_rr":
+                target = entry + COST_RR_OVERRIDE * risk if is_long else entry - COST_RR_OVERRIDE * risk
+            else:
+                continue
+
         level_last_bar[level_price] = i
 
         # ── ГЕЙТ СВЕЖЕСТИ: в signals (→ реальные ордера) попадают ТОЛЬКО ──
@@ -742,7 +767,7 @@ def scan_ticker(ticker, df1d, dfh):
             "stop":       round(stop, 4),
             "target":     round(target, 4),
             "risk":       round(risk, 4),
-            "rr":         RR_TARGET,
+            "rr":         round(abs(target - entry) / risk, 2),
             "model_prob": round(prob, 3),
             "atr_daily":  round(atr_day, 4),
             "trend":      "BULL" if trend == 1 else "BEAR",
@@ -824,7 +849,8 @@ print(f"  MOEX TQBR: {', '.join(MOEX_TICKERS)}")
 print(f"  FORTS:     {', '.join(list(MOEX_FUTURES) + list(MOEX_FUTURES_PERPETUAL))}")
 print(f"  Параметры: LEVEL_DIST={LEVEL_DIST}, VM={VOID_MULTIPLIER}, "
       f"STOP_ATR_FRAC={STOP_ATR_FRAC}, RR={RR_TARGET}")
-print(f"  ATR-фильтр: hourly < {ATR_EXHAUSTION} * daily  |  "
+print(f"  ATR-фильтр (день выработан): day_range >= {ATR_EXHAUSTION} * daily_ATR  |  "
+      f"CostFilter: cost/risk <= {MAX_COST_RATIO} ({COST_RATIO_ACTION})  |  "
       f"Модель: {'OFF' if MODEL_THRESHOLD == 0 else f'ON (≥{MODEL_THRESHOLD})'}")
 print(f"  Проверка последних {CHECK_LAST_N_BARS} баров")
 print(f"  NTFY: {'ON' if _NTFY_AVAILABLE else 'OFF'}")
