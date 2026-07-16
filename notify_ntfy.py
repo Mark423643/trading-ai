@@ -130,3 +130,50 @@ def generate_status_comment(pct_to_tp: float, pct_to_sl: float, direction: str) 
         return "Движется к тейку, всё по плану 🌊"
     else:
         return "Позиция активна, всё штатно ✅"
+
+def send_signal_for_approval(sig: dict) -> bool:
+    """Шаблон D — Запрос одобрения сигнала с кнопками ОДОБРИТЬ / ПРОПУСТИТЬ.
+    Кнопка ОДОБРИТЬ открывает TradingView для визуальной проверки.
+    Кнопка ПРОПУСТИТЬ закрывает уведомление без действия.
+    """
+    ticker     = sig["ticker"]
+    direction  = sig["direction"]
+    d_ru       = "ЛОНГ" if direction == "LONG" else "ШОРТ"
+    d_tag      = "green_circle" if direction == "LONG" else "red_circle"
+    entry      = sig.get("entry", 0)
+    stop       = sig.get("stop", 0)
+    target     = sig.get("target", 0)
+    rr         = sig.get("rr", "?")
+    level      = sig.get("level", "?")
+    atr_daily  = sig.get("atr_daily", 0)
+    trend      = sig.get("trend", "?")
+    bar_time   = sig.get("bar_time", "?")
+
+    tv_url = f"https://www.tradingview.com/chart/?symbol=MOEX:{ticker}"
+
+    msg = (
+        f"\u23f3 ОДОБРЕНИЕ: {ticker} \u2192 {d_ru}\n"
+        f"Бар: {bar_time}\n"
+        f"Вход: {entry:.2f} | Стоп: {stop:.2f} | Цель: {target:.2f}\n"
+        f"R:R = {rr}:1 | Уровень: {level}\n"
+        f"ATR дневной: {atr_daily:.4f} | Тренд: {trend}\n"
+        f"Открой график и реши: ОДОБРИТЬ или ПРОПУСТИТЬ"
+    )
+
+    safe_title = f"APPROVAL? {ticker} {direction}".encode("ascii", errors="replace").decode("ascii")
+    headers = {
+        "Title": safe_title,
+        "Priority": "5",
+        "Tags": f"{d_tag},eyes,bell",
+        "Actions": (
+            f"view, ОДОБРИТЬ TV, {tv_url}, clear=true; "
+            f"view, ПРОПУСТИТЬ, https://ntfy.sh/{NTFY_TOPIC}, clear=true"
+        ),
+    }
+    try:
+        r = requests.post(NTFY_URL, data=msg.encode("utf-8"),
+                          headers=headers, timeout=10)
+        return r.status_code == 200
+    except Exception as e:
+        print(f"  [NTFY ERR] {e}")
+        return False

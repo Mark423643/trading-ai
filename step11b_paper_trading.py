@@ -47,6 +47,7 @@ try:
         send_close_signal as _ntfy_close,
         send_portfolio_radar as _ntfy_radar,
         generate_status_comment as _ntfy_comment,
+        send_signal_for_approval as _ntfy_approval,
     )
     _NTFY_AVAILABLE = True
 except Exception as e:
@@ -89,6 +90,33 @@ sys.stderr = _Tee(sys.stderr, LOG_FILE)
 DATA_DIR  = "data"
 MODEL_DIR = "models"
 SIG_FILE  = os.path.join(DATA_DIR, "signals_live.csv")
+
+# ── Approval Mode ─────────────────────────────────────────────────────────────
+APPROVAL_LOG = os.path.join(DATA_DIR, "approval_log.csv")
+
+def _append_approval_log(sig, decision):
+    """Записывает сигнал с решением в approval_log.csv."""
+    row = {
+        "scan_time":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "ticker":         sig.get("ticker", ""),
+        "direction":      sig.get("direction", ""),
+        "entry":          sig.get("entry", ""),
+        "stop":           sig.get("stop", ""),
+        "target":         sig.get("target", ""),
+        "risk":           sig.get("risk", ""),
+        "rr":             sig.get("rr", ""),
+        "level":          sig.get("level", ""),
+        "atr_daily":      sig.get("atr_daily", ""),
+        "trend":          sig.get("trend", ""),
+        "human_decision": decision,
+        "result":         "",
+    }
+    write_header = not os.path.exists(APPROVAL_LOG)
+    pd.DataFrame([row]).to_csv(APPROVAL_LOG, mode="a", index=False,
+                               header=write_header, encoding="utf-8")
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 HIST_FILE = os.path.join(DATA_DIR, "trades_history.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -909,19 +937,24 @@ else:
         print(f"      Цель:        {sig['target']}  (R:R {sig['rr']}:1)")
         print(f"      Модель:      {sig['model_prob']:.3f}  |  Тренд: {sig['trend']}")
 
-        # Отправляем Template A через ntfy
+        # Отправляем сигнал через ntfy (APPROVAL_MODE или сразу)
         if _NTFY_AVAILABLE:
-            atr_val = sig.get("atr_daily", 0)
-            ticker = sig["ticker"]
-            risk = sig["risk"]
-            entry = sig["entry"]
-            # Cost ratio (упрощённо: 0.06% комиссии + проскальзывание)
-            from config_trading import COMMISSION_PCT, SLIPPAGE_STEPS
-            ts = moex_tick_size(entry)
-            cost_ratio = (entry * COMMISSION_PCT * 2 + 2 * ts * SLIPPAGE_STEPS) / risk if risk > 0 else 0
-            hist_pf = _HISTORICAL_PF.get(ticker, 0.5)
-            lots = max(1, int(100.0 / risk)) if risk > 0 else 1
-            _ntfy_open(sig, atr_val, cost_ratio, hist_pf, lots)
+            if os.getenv("APPROVAL_MODE", "1") == "1":
+                _ntfy_approval(sig)
+                _append_approval_log(sig, "PENDING")
+                print(f"      [APPROVAL] Отправлен на одобрение → approval_log.csv")
+            else:
+                atr_val = sig.get("atr_daily", 0)
+                ticker = sig["ticker"]
+                risk = sig["risk"]
+                entry = sig["entry"]
+                # Cost ratio (упрощённо: 0.06% комиссии + проскальзывание)
+                from config_trading import COMMISSION_PCT, SLIPPAGE_STEPS
+                ts = moex_tick_size(entry)
+                cost_ratio = (entry * COMMISSION_PCT * 2 + 2 * ts * SLIPPAGE_STEPS) / risk if risk > 0 else 0
+                hist_pf = _HISTORICAL_PF.get(ticker, 0.5)
+                lots = max(1, int(100.0 / risk)) if risk > 0 else 1
+                _ntfy_open(sig, atr_val, cost_ratio, hist_pf, lots)
 
     # ── исполнение через брокера Финам ──
     _live_from_env = os.getenv("LIVE_TRADING", "0").strip() == "1"
