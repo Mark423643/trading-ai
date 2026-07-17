@@ -67,21 +67,47 @@ def slice_window(df: pd.DataFrame, signal_time, bars_before: int, bars_after: in
     return df.iloc[start_idx:stop_idx]
 
 
+# ── Тёмная тема в стиле TradingView Dark ──
+_TV_DARK = mpf.make_mpf_style(
+    base_mpf_style="nightclouds",
+    marketcolors=mpf.make_marketcolors(
+        up="#26a69a", down="#ef5350",
+        edge="inherit", wick="inherit",
+    ),
+    facecolor="#131722",
+    edgecolor="#131722",
+    figcolor="#131722",
+    gridcolor="#2a2e39",
+    gridstyle="--",
+    rc={
+        "axes.labelcolor": "#d1d4dc",
+        "xtick.color": "#d1d4dc",
+        "ytick.color": "#d1d4dc",
+        "text.color": "#d1d4dc",
+        "axes.edgecolor": "#2a2e39",
+    },
+)
+
+
 def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
                   stop=None, target=None, title: str = "") -> None:
+    """Рендерит чистый M5-график в стиле TradingView Dark: без объёма и
+    прочих индикаторов, уровень — жирная линия, текущая цена подписана справа.
+    """
     hlines, colors, styles, widths = [], [], [], []
 
-    def add_line(value, color, style="--", width=1.0):
+    def add_line(value, color, style="--", width=1.2):
         if value is not None:
             hlines.append(float(value))
             colors.append(color)
             styles.append(style)
             widths.append(width)
 
-    add_line(level,  "blue",   "-",  1.2)
-    add_line(entry,  "black",  "--", 1.0)
-    add_line(stop,   "red",    "--", 1.0)
-    add_line(target, "green",  "--", 1.0)
+    # Уровень — жирная сплошная линия (главный ориентир на графике)
+    add_line(level,  "#ffeb3b", "-",  2.2)
+    add_line(entry,  "#9598a1", "--", 1.0)
+    add_line(stop,   "#ef5350", "--", 1.2)
+    add_line(target, "#26a69a", "--", 1.2)
 
     hlines_kw = None
     if hlines:
@@ -89,18 +115,34 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
-    mpf.plot(
+    fig, axlist = mpf.plot(
         df,
         type="candle",
-        style="yahoo",
-        volume=True,
+        style=_TV_DARK,
+        volume=False,          # чистый график — без объёма и прочих индикаторов
         hlines=hlines_kw,
         title=title,
-        figsize=(6.4, 4.8),   # 6.4in * 100dpi = 640px, 4.8in * 100dpi = 480px
-        savefig=dict(fname=out_path, dpi=100, pad_inches=0, bbox_inches=None),
+        figsize=(6.4, 4.8),    # 6.4in * 100dpi = 640px, 4.8in * 100dpi = 480px
         axisoff=False,
         tight_layout=True,
+        returnfig=True,
     )
+
+    # ── Текущая цена — подпись справа, как в TradingView ──
+    ax = axlist[0]
+    last_close = float(df["Close"].iloc[-1])
+    x0, x1 = ax.get_xlim()
+    ax.set_xlim(x0, x1 + (x1 - x0) * 0.06)  # место под подпись цены справа
+    ax.annotate(
+        f" {last_close:.2f} ",
+        xy=(x1, last_close), xycoords="data",
+        va="center", ha="left", fontsize=8, color="#131722",
+        bbox=dict(boxstyle="square,pad=0.25", facecolor="#2962ff", edgecolor="none"),
+    )
+
+    fig.savefig(out_path, dpi=100, facecolor=_TV_DARK["figcolor"], pad_inches=0)
+    import matplotlib.pyplot as plt
+    plt.close(fig)
 
 
 def build_filename(ticker: str, signal_time, direction: str) -> str:
@@ -123,8 +165,8 @@ def main():
     ap.add_argument("--target", type=float, default=None)
     ap.add_argument("--direction", type=str, default="NO_ENTRY", choices=VALID_DIRECTIONS)
     ap.add_argument("--split", type=str, default="train", choices=["train", "val"])
-    ap.add_argument("--bars-before", type=int, default=60, help="Баров контекста до сигнала")
-    ap.add_argument("--bars-after", type=int, default=10, help="Баров контекста после сигнала")
+    ap.add_argument("--bars-before", type=int, default=99, help="Баров контекста до сигнала (99+сигнальный=100 на графике)")
+    ap.add_argument("--bars-after", type=int, default=0, help="Баров контекста после сигнала")
     ap.add_argument("--out", type=str, default=None, help="Явный путь для сохранения (переопределяет --split)")
     ap.add_argument("--test", action="store_true", help="Смоук-тест на кэшированных данных, без реального сигнала")
     args = ap.parse_args()
@@ -137,7 +179,7 @@ def main():
         except FileNotFoundError as e:
             print(f"[TEST] ОШИБКА: {e}")
             sys.exit(1)
-        window = slice_window(df, None, bars_before=60, bars_after=0)
+        window = slice_window(df, None, bars_before=99, bars_after=0)
         level = float(window["High"].max())
         out_dir = os.path.join(DATA_DIR, "val", "NO_ENTRY")
         fname = build_filename(ticker, window.index[-1], "NO_ENTRY")
