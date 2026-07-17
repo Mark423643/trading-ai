@@ -12,3 +12,15 @@ models/*.pkl
 .aider*
 .vscode/
 _batch_backtest.log
+
+# ── ml_vision: структуру коммитим, тяжёлые артефакты — нет ──
+!ml_vision/
+!ml_vision/data/
+!ml_vision/data/**/
+!ml_vision/data/**/.gitkeep
+ml_vision/data/**/*.png
+ml_vision/data/**/*.jpg
+ml_vision/models/*.pkl
+ml_vision/models/*.pt
+ml_vision/models/*.h5
+ml_vision/models/*.onnx
