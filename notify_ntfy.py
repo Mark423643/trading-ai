@@ -178,3 +178,45 @@ def send_signal_for_approval(sig: dict) -> bool:
     except Exception as e:
         print(f"  [NTFY ERR] {e}")
         return False
+
+
+def send_signal_screenshot(sig: dict, screenshot_path: str) -> bool:
+    """Отправляет в NTFY PNG-скриншот сигнала (уровень/стоп/цель/вход
+    нарисованы на графике в screenshot_chart.make_screenshot()) вместо
+    текстового сообщения. Кнопки: открыть TradingView, APPROVE, SKIP.
+
+    HTTP-заголовки поддерживают только ASCII — Title и Actions без кириллицы,
+    описание сделки остаётся только на самой картинке.
+    """
+    ticker    = sig["ticker"]
+    direction = sig["direction"]
+    d_tag     = "green_circle" if direction == "LONG" else "red_circle"
+
+    if not os.path.exists(screenshot_path):
+        print(f"  [NTFY ERR] скриншот не найден: {screenshot_path}")
+        return False
+
+    tv_url = f"https://www.tradingview.com/chart/?symbol=MOEX:{ticker}&interval=5"
+
+    safe_title = f"SIGNAL {ticker} {direction}".encode("ascii", errors="replace").decode("ascii")
+    headers = {
+        "Title": safe_title,
+        "Priority": "5",
+        "Tags": f"{d_tag},rotating_light",
+        "Filename": f"{ticker}.png",
+        # ASCII-only: HTTP-заголовки не поддерживают кириллицу
+        "Actions": (
+            f"view, TradingView, {tv_url}; "
+            f"http, APPROVE, {NTFY_URL}, method=POST, "
+            f"headers.X-Title=APPROVED {ticker} {direction}, clear=true; "
+            f"http, SKIP, {NTFY_URL}, method=POST, "
+            f"headers.X-Title=SKIPPED {ticker}, clear=true"
+        ),
+    }
+    try:
+        with open(screenshot_path, "rb") as f:
+            r = requests.post(NTFY_URL, data=f.read(), headers=headers, timeout=15)
+        return r.status_code == 200
+    except Exception as e:
+        print(f"  [NTFY ERR] {e}")
+        return False

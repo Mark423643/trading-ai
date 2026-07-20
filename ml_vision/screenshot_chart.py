@@ -90,9 +90,16 @@ _TV_DARK = mpf.make_mpf_style(
 
 
 def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
-                  stop=None, target=None, title: str = "") -> None:
+                  stop=None, target=None, title: str = "",
+                  entry_bar_idx: int = -1, direction: str = None) -> None:
     """Рендерит чистый M5-график в стиле TradingView Dark: без объёма и
-    прочих индикаторов, уровень — жирная линия, текущая цена подписана справа.
+    прочих индикаторов, уровень/стоп/цель — линии, текущая цена подписана
+    справа, точка входа — синяя стрелка (если задан entry).
+
+    entry_bar_idx — индекс бара (по умолчанию последний, -1), к которому
+    рисуется стрелка входа.
+    direction — "LONG"/"SHORT"/"LONG_ENTRY"/"SHORT_ENTRY": влияет только на
+    направление стрелки (снизу-вверх для лонга, сверху-вниз для шорта).
     """
     hlines, colors, styles, widths = [], [], [], []
 
@@ -105,9 +112,8 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
 
     # Уровень — жирная сплошная линия (главный ориентир на графике)
     add_line(level,  "#ffeb3b", "-",  2.2)
-    add_line(entry,  "#9598a1", "--", 1.0)
-    add_line(stop,   "#ef5350", "--", 1.2)
-    add_line(target, "#26a69a", "--", 1.2)
+    add_line(stop,   "#ef5350", "--", 1.4)
+    add_line(target, "#26a69a", "--", 1.4)
 
     hlines_kw = None
     if hlines:
@@ -127,9 +133,42 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
         tight_layout=True,
         returnfig=True,
     )
+    ax = axlist[0]
+
+    # ── Расширяем ось Y так, чтобы уровень/стоп/цель гарантированно попали
+    #    в кадр, даже если они за пределами диапазона видимых свечей ──
+    y_vals = [v for v in (level, stop, target) if v is not None]
+    if y_vals:
+        y0, y1 = ax.get_ylim()
+        y0 = min(y0, min(y_vals))
+        y1 = max(y1, max(y_vals))
+        pad = (y1 - y0) * 0.05 or 0.01
+        ax.set_ylim(y0 - pad, y1 + pad)
+
+    # ── Точка входа — синяя стрелка ──
+    if entry is not None:
+        n = len(df)
+        x_idx = entry_bar_idx if entry_bar_idx >= 0 else n + entry_bar_idx
+        x_idx = max(0, min(n - 1, x_idx))
+        is_long = str(direction).upper().startswith("LONG")
+        # Диапазон цен на графике — чтобы стрелка была заметного, но не гигантского размера
+        y_span = float(df["High"].max() - df["Low"].min()) or 1.0
+        offset = y_span * 0.06
+        if is_long:
+            y_from = float(entry) - offset * 2.2
+            y_to = float(entry) - offset * 0.3
+        else:
+            y_from = float(entry) + offset * 2.2
+            y_to = float(entry) + offset * 0.3
+        ax.annotate(
+            "", xy=(x_idx, y_to), xytext=(x_idx, y_from),
+            xycoords="data", textcoords="data",
+            arrowprops=dict(arrowstyle="-|>", color="#2962ff", lw=2.2,
+                             mutation_scale=16),
+            zorder=10,
+        )
 
     # ── Текущая цена — подпись справа, как в TradingView ──
-    ax = axlist[0]
     last_close = float(df["Close"].iloc[-1])
     x0, x1 = ax.get_xlim()
     ax.set_xlim(x0, x1 + (x1 - x0) * 0.06)  # место под подпись цены справа
@@ -143,6 +182,37 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
     fig.savefig(out_path, dpi=100, facecolor=_TV_DARK["figcolor"], pad_inches=0)
     import matplotlib.pyplot as plt
     plt.close(fig)
+
+
+def make_screenshot(ticker: str, bar_time, level: float, entry: float,
+                     stop: float, target: float, direction: str,
+                     out_dir: str = None, timeframe: str = "M5",
+                     bars_before: int = 99) -> str:
+    """Готовит PNG-скриншот сигнала для отправки в NTFY: 100 баров M5 до
+    bar_time включительно, уровень (жёлтый), стоп (красный), цель (зелёный),
+    вход (синяя стрелка). Возвращает путь к сохранённому файлу.
+    """
+    df = load_ticker_df(ticker, timeframe)
+    window = slice_window(df, bar_time, bars_before=bars_before, bars_after=0)
+    if len(window) == 0:
+        raise ValueError(f"Пустое окно данных для {ticker} @ {bar_time}")
+
+    if out_dir is None:
+        out_dir = os.path.join(DATA_DIR, "signals")
+    os.makedirs(out_dir, exist_ok=True)
+
+    ts_str = pd.Timestamp(bar_time).strftime("%Y%m%d_%H%M%S") if bar_time else \
+        pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    fname = f"{ticker.upper()}_{ts_str}_{direction}.png"
+    out_path = os.path.join(out_dir, fname)
+
+    render_chart(
+        window, out_path,
+        level=level, stop=stop, target=target, entry=entry,
+        direction=direction,
+        title=f"{ticker.upper()} M5 — {direction}",
+    )
+    return out_path
 
 
 def build_filename(ticker: str, signal_time, direction: str) -> str:
@@ -209,7 +279,7 @@ def main():
         out_path = os.path.join(DATA_DIR, args.split, args.direction, fname)
 
     render_chart(window, out_path, level=args.level, entry=args.entry,
-                 stop=args.stop, target=args.target,
+                 stop=args.stop, target=args.target, direction=args.direction,
                  title=f"{args.ticker.upper()} {args.timeframe} — {args.direction}")
 
     print(f"Сохранено: {out_path}")
