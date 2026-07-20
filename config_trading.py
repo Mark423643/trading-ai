@@ -55,10 +55,13 @@ MAX_COST_RATIO    = 0.10
 COST_RATIO_ACTION = "skip"
 COST_RR_OVERRIDE  = 5.0
 
-# ── Тикеры ───────────────────────────────────────────────
+# ── Тикеры (отобраны бэктестом P3, 20.07.2026) ──────────
+# 16 тикеров: N=240, Exp=+0.59R, PF=2.12, 2.3/нед, 13/23 мес+
 MOEX_TICKERS = [
-    "GAZP", "SBER", "LKOH", "GMKN", "TATN",
-    "NVTK", "VTBR", "MGNT", "NLMK", "CHMF",
+    "AKRN", "AQUA", "ASTR", "BELU", "ENPG",
+    "HEAD", "HNFG", "MGNT", "MVID", "OZON",
+    "POLY", "ROSN", "TATN", "TATNP", "VKCO",
+    "VSMO",
 ]
 
 # ── Фьючерсы MOEX FORTS ─────────────────────────────────
