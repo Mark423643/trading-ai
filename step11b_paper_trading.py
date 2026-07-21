@@ -1,8 +1,11 @@
 """
-Step 11b — Paper Trading: P3 Retest на H1, Approval Mode.
-Паттерн: пробой уровня → закрепление → ретест → отбой → вход.
-Фильтры: E1 (D1 trend), E2 (H1 trend), B5 (void>=3R), F1 (CostFilter),
-G4 (no squeeze), G6 (touches>=3). Breakeven at 2xSL.
+Step 11b — Paper Trading: P3+P2 combined на H1, Approval Mode.
+P3 (ретест): пробой уровня → откат к уровню → отбой → вход.
+P2 (закрепление): пробой уровня → P2_CONF_BARS баров подряд ЗА уровнем
+    (без отката) → вход на баре подтверждения.
+Фильтры (оба паттерна): E1 (D1 trend), E2 (H1 trend), B5 (void>=3R),
+F1 (CostFilter), G4 (no squeeze). Breakeven at 2xSL. G6 НЕ применяется.
+Бэктест 21.07.2026 (24 тикера): N=735, Exp=+0.316R net, PF=2.27, 7.11/нед.
 
 Запуск: cron каждый час (10-19 МСК).
 """
@@ -106,7 +109,7 @@ def _append_approval_log(sig, decision):
         "level":          sig.get("level", ""),
         "atr_daily":      sig.get("atr_daily", ""),
         "trend":          sig.get("trend", ""),
-        "pattern":        "P3_RETEST",
+        "pattern":        sig.get("pattern", "P3_RETEST"),
         "human_decision": decision,
         "result":         "",
     }
@@ -137,6 +140,8 @@ from config_trading import (
 
 CHECK_LAST_N_BARS   = 720
 FRESH_MAX_AGE_HOURS = 2.0
+P2_CONF_BARS        = 3   # P2: столько H1-баров подряд цена должна закрыться
+                           # ЗА уровнем ("закрепление"), без отката к нему
 
 _ML_AVAILABLE = False
 
@@ -522,6 +527,139 @@ def is_squeeze(dfh, i):
 
 
 # ───────────────────────────────────────────────────────
+# P2: "Пробой с закреплением" — цена закрывается ЗА уровнем
+# P2_CONF_BARS раз подряд (без отката к уровню, в отличие от P3-ретеста).
+# Вход на баре подтверждения. Один сигнал на уровень (перевзвод только
+# на новом пивоте), проверяется только для последнего бара сканирования
+# (freshness gate) — исторические подтверждения не переигрываются.
+# ───────────────────────────────────────────────────────
+def detect_p2_signals(ticker, dfh, lev_prices, lev_types, pivot_dates,
+                       _live_price=None):
+    signals = []
+    H = dfh["High"].values; L = dfh["Low"].values; C = dfh["Close"].values
+    AD = dfh["ATR_daily"].values; DT = dfh["daily_trend"].values
+    HT = dfh["h_trend"].values; DR = dfh["day_range"].values
+    NB = len(dfh)
+    last_i = NB - 1
+
+    for level_price, level_type_str, piv_date in zip(lev_prices, lev_types, pivot_dates):
+        is_long = (level_type_str == "resistance")
+        start_i = dfh.index.searchsorted(piv_date, side="right")
+        if start_i >= NB:
+            continue
+
+        # Кулдаун P2 отдельный от P3 (см. p2_level_used в module scope)
+        p2_key = (ticker, level_price)
+        if p2_key in p2_level_used:
+            continue
+
+        consec = 0
+        for i in range(start_i, NB):
+            beyond = (C[i] > level_price) if is_long else (C[i] < level_price)
+            if not beyond:
+                consec = 0
+                continue
+            consec += 1
+            if consec != P2_CONF_BARS:
+                continue
+
+            # Подтверждение "закрепления" на баре i — проверяем фильтры
+            ad = AD[i]; dr = DR[i]
+            if np.isnan(ad) or ad == 0:
+                consec = 0; continue
+            if np.isnan(dr) or dr < ATR_EXHAUSTION * ad:
+                consec = 0; continue
+            d_tr = DT[i]; h_tr = HT[i]
+            if TREND_FILTER_D1 and not np.isnan(d_tr):
+                if is_long and d_tr < 0: consec = 0; continue
+                if not is_long and d_tr > 0: consec = 0; continue
+            if TREND_FILTER_H1 and not np.isnan(h_tr):
+                if is_long and h_tr < 0: consec = 0; continue
+                if not is_long and h_tr > 0: consec = 0; continue
+            # G4: без сжатия
+            if is_squeeze(dfh, i):
+                consec = 0; continue
+
+            is_last_bar = (i == last_i)
+            if not is_last_bar:
+                # Подтверждение уже случилось в истории — уровень исчерпан
+                p2_level_used.add(p2_key)
+                break
+
+            if _live_price is not None and _live_price > 0:
+                entry = _live_price
+            else:
+                entry = C[i]
+
+            lo_win = L[max(0, i - P2_CONF_BARS + 1):i + 1]
+            hi_win = H[max(0, i - P2_CONF_BARS + 1):i + 1]
+            if is_long:
+                stop = min(min(lo_win), level_price) - 0.001 * level_price
+                stop = min(stop, entry - STOP_ATR_FRAC * ad)
+            else:
+                stop = max(max(hi_win), level_price) + 0.001 * level_price
+                stop = max(stop, entry + STOP_ATR_FRAC * ad)
+            risk = abs(entry - stop)
+            if risk == 0:
+                break
+            target = entry + RR_TARGET * risk if is_long else entry - RR_TARGET * risk
+
+            # B5: пустота >= 3R до следующего уровня
+            if is_long:
+                cands = lev_prices[lev_prices > level_price + risk]
+            else:
+                cands = lev_prices[lev_prices < level_price - risk]
+            if len(cands) > 0:
+                nearest = cands[np.argmin(np.abs(cands - C[i]))]
+                void_dist = abs(nearest - level_price)
+            else:
+                void_dist = 999 * ad
+            if void_dist < VOID_R_MULTIPLIER * risk:
+                break
+
+            # F1: CostFilter
+            _tick = moex_tick_size(entry)
+            _cost_ratio = (entry * COMMISSION_PCT * 2 + 2 * _tick * SLIPPAGE_STEPS) / risk if risk > 0 else 1.0
+            if _cost_ratio > MAX_COST_RATIO:
+                if COST_RATIO_ACTION == "increase_rr":
+                    target = entry + COST_RR_OVERRIDE * risk if is_long else entry - COST_RR_OVERRIDE * risk
+                else:
+                    break
+
+            _bar_ts = pd.to_datetime(dfh.index[i])
+            if _bar_ts.tzinfo is not None:
+                _bar_ts = _bar_ts.tz_localize(None)
+            _age_h = (pd.Timestamp.now() - _bar_ts).total_seconds() / 3600.0
+            if _age_h > FRESH_MAX_AGE_HOURS:
+                break
+
+            trend_label = "BULL" if d_tr == 1 else "BEAR"
+            p2_level_used.add(p2_key)
+
+            signals.append({
+                "scan_time":    now_str(),
+                "ticker":       ticker,
+                "exchange":     "MOEX",
+                "bar_time":     str(dfh.index[i]),
+                "direction":    "LONG" if is_long else "SHORT",
+                "pattern":      "P2_BREAKOUT",
+                "level":        round(level_price, 4),
+                "entry":        round(entry, 4),
+                "stop":         round(stop, 4),
+                "target":       round(target, 4),
+                "risk":         round(risk, 4),
+                "rr":           round(abs(target - entry) / risk, 2),
+                "atr_daily":    round(ad, 4),
+                "trend":        trend_label,
+                "h_trend":      "BULL" if h_tr == 1 else "BEAR",
+                "vol_decline":  "N",
+                "model_prob":   1.0,
+            })
+            break
+    return signals
+
+
+# ───────────────────────────────────────────────────────
 # Scanner core — one ticker
 # ───────────────────────────────────────────────────────
 def scan_ticker(ticker, df1d, dfh):
@@ -707,6 +845,11 @@ def scan_ticker(ticker, df1d, dfh):
             "model_prob":   1.0,
         })
 
+    # P2: "Пробой с закреплением" — независимая детекция на тех же уровнях
+    signals.extend(detect_p2_signals(
+        ticker, dfh, lev_prices, lev_types, pivots["date"].values, _live_price,
+    ))
+
     return signals
 
 
@@ -761,6 +904,7 @@ def is_duplicate(sig, existing, history=None, seen_tickers_in_run: set = None):
 # MAIN LOOP
 # ───────────────────────────────────────────────────────
 level_last_bar = {}
+p2_level_used  = set()   # P2: (ticker, level) уже использованные для сигнала
 
 _MODE_LABEL = "LIVE TRADING" if (_BROKER_AVAILABLE and _LIVE_TRADING) else "PAPER TRADING"
 

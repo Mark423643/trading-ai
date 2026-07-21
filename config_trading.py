@@ -1,8 +1,11 @@
 """
 config_trading.py — единый блок конфигурации торговой стратегии.
 
-Паттерн P3 (Ретест после пробоя) на H1, Approval Mode.
-G4+BE бэктест 21.07.2026: N=210, Exp=+0.623R, PF=2.30, WR=45%, 2.03/нед, 24 тикера.
+Паттерны P3 (Ретест после пробоя) + P2 (Пробой с закреплением) на H1,
+Approval Mode, 24 тикера.
+G4+BE бэктест 21.07.2026 (combined): N=735, Exp=+0.316R net, PF=2.27,
+WR=52.5%, 7.11/нед. Раздельно: P3 N=210 Exp=+0.623R (56.3% PnL),
+P2 N=525 Exp=+0.193R (43.7% PnL). G6 (touches>=3) НЕ применяется.
 
 Импорт:
     from config_trading import (
@@ -57,7 +60,7 @@ COST_RATIO_ACTION = "skip"
 COST_RR_OVERRIDE  = 5.0
 
 # ── Тикеры (отобраны бэктестом P3, 20.07.2026) ──────────
-# 24 тикера: N=210, Exp=+0.623R, PF=2.30, 2.03/нед (G4+BE, no G6)
+# 24 тикера: N=735 (P3+P2), Exp=+0.316R net, PF=2.27, 7.11/нед (G4+BE, no G6)
 MOEX_TICKERS = [
     "AKRN", "ASTR", "BANEP", "BELU", "BSPB",
     "DATA", "ENPG", "HEAD", "HHRU", "MGNT",
