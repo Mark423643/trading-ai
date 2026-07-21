@@ -20,6 +20,7 @@ import os
 import sys
 
 import pandas as pd
+import requests
 import mplfinance as mpf
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -65,6 +66,50 @@ def slice_window(df: pd.DataFrame, signal_time, bars_before: int, bars_after: in
     start_idx = max(0, end_idx - bars_before)
     stop_idx = min(len(df), end_idx + bars_after + 1)
     return df.iloc[start_idx:stop_idx]
+
+
+def fetch_live_price(ticker: str) -> float | None:
+    """Текущая цена с MOEX ISS (marketdata). candles.json не отдаёт
+    формирующийся текущий час, поэтому для актуального последнего
+    бара нужен отдельный запрос."""
+    try:
+        url = (
+            f"https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR"
+            f"/securities/{ticker.upper()}.json?iss.meta=off&iss.only=marketdata"
+            f"&marketdata.columns=SECID,LAST"
+        )
+        r = requests.get(url, timeout=5)
+        data = r.json()["marketdata"]["data"]
+        if data and data[0][1]:
+            return float(data[0][1])
+    except Exception:
+        pass
+    return None
+
+
+def append_live_bar(df: pd.DataFrame, live_price: float, timeframe: str = "H1") -> pd.DataFrame:
+    """Достраивает синтетический текущий (формирующийся) бар с живой ценой,
+    чтобы последняя свеча совпадала с TradingView, а не отставала на
+    один бар (MOEX candles.json отдаёт только закрытые часовые бары)."""
+    if df.empty or live_price is None or live_price <= 0:
+        return df
+    freq = {"H1": "h", "D1": "D", "M5": "5min"}.get(timeframe.upper(), "h")
+    last_ts = df.index[-1]
+    new_ts = last_ts + pd.tseries.frequencies.to_offset(freq)
+    now = pd.Timestamp.now()
+    if new_ts > now + pd.Timedelta(hours=1) or new_ts <= last_ts:
+        return df
+    if now - last_ts > pd.Timedelta(days=4):
+        return df  # данные слишком старые — не выдавать их за "текущий" бар
+    prev_close = float(df["Close"].iloc[-1])
+    new_row = pd.DataFrame([{
+        "Open": prev_close,
+        "High": max(prev_close, live_price),
+        "Low": min(prev_close, live_price),
+        "Close": live_price,
+        "Volume": 0.0,
+    }], index=[new_ts])
+    return pd.concat([df, new_row])
 
 
 # ── Тёмная тема в стиле TradingView Dark ──
@@ -183,7 +228,17 @@ def make_screenshot(ticker: str, bar_time, level: float, entry: float,
     """
     if df is None:
         df = load_ticker_df(ticker, timeframe)
-    window = slice_window(df, bar_time, bars_before=bars_before, bars_after=0)
+
+    bars_after = 0
+    if timeframe.upper() == "H1":
+        _live = fetch_live_price(ticker)
+        if _live:
+            _before = len(df)
+            df = append_live_bar(df, _live, timeframe)
+            if len(df) > _before:
+                bars_after = 1  # свежий бар добавлен — включаем его в окно
+
+    window = slice_window(df, bar_time, bars_before=bars_before, bars_after=bars_after)
     if len(window) == 0:
         raise ValueError(f"Пустое окно данных для {ticker} @ {bar_time}")
 
