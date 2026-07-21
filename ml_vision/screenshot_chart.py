@@ -147,24 +147,6 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
     direction — "LONG"/"SHORT"/"LONG_ENTRY"/"SHORT_ENTRY": влияет только на
     направление стрелки (снизу-вверх для лонга, сверху-вниз для шорта).
     """
-    hlines, colors, styles, widths = [], [], [], []
-
-    def add_line(value, color, style="--", width=1.2):
-        if value is not None:
-            hlines.append(float(value))
-            colors.append(color)
-            styles.append(style)
-            widths.append(width)
-
-    # Уровень — жирная сплошная линия (главный ориентир на графике)
-    add_line(level,  "#ffeb3b", "-",  2.2)
-    add_line(stop,   "#ef5350", "--", 1.4)
-    add_line(target, "#26a69a", "--", 1.4)
-
-    hlines_kw = None
-    if hlines:
-        hlines_kw = dict(hlines=hlines, colors=colors, linestyle=styles, linewidths=widths)
-
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     fig, axlist = mpf.plot(
@@ -172,7 +154,6 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
         type="candle",
         style=_TV_DARK,
         volume=False,          # чистый график — без объёма и прочих индикаторов
-        hlines=hlines_kw,
         title=title,
         figsize=(6.4, 4.8),    # 6.4in * 100dpi = 640px, 4.8in * 100dpi = 480px
         axisoff=False,
@@ -181,14 +162,27 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
     )
     ax = axlist[0]
 
-    # ── Ось Y охватывает и свечи, и уровень/стоп/цель/вход, даже если
-    #    они далеко за пределами видимого диапазона цен ──
-    all_prices = [float(df["Low"].min()), float(df["High"].max())]
-    for v in (level, stop, target, entry):
+    # ── Уровень/стоп/цель/вход — линии через всю ширину графика ──
+    if level is not None:
+        ax.axhline(y=float(level), color="#ffeb3b", linewidth=2)
+    if stop is not None:
+        ax.axhline(y=float(stop), color="#ef5350", linewidth=2)
+    if target is not None:
+        ax.axhline(y=float(target), color="#26a69a", linewidth=2)
+    if entry is not None:
+        ax.axhline(y=float(entry), color="#2962ff", linewidth=1.5, linestyle="--")
+
+    # ── Ось Y охватывает последние 100 баров и все уровни/стоп/цель/вход,
+    #    даже если они далеко за пределами видимого диапазона цен ──
+    prices_to_show = [
+        float(df["Low"].iloc[-100:].min()),
+        float(df["High"].iloc[-100:].max()),
+    ]
+    for v in (level, entry, stop, target):
         if v is not None:
-            all_prices.append(float(v))
-    y_min = min(all_prices) * 0.995
-    y_max = max(all_prices) * 1.005
+            prices_to_show.append(float(v))
+    y_min = min(prices_to_show) * 0.995
+    y_max = max(prices_to_show) * 1.005
     ax.set_ylim(y_min, y_max)
 
     # ── Текущая цена — подпись справа, как в TradingView ──

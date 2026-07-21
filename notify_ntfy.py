@@ -6,7 +6,6 @@ API: POST https://ntfy.sh/mark_trading_2026
 Использует английские заголовки с базовыми эмодзи (UTF-8).
 """
 import os
-import json
 import requests
 from datetime import datetime
 
@@ -163,18 +162,10 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
         f"Уровень: {level:.2f} | R:R {rr:.1f}:1\n"
         f"ATR: {atr_val:.4f} | Тренд: {trend}"
     )
-    approve_body = json.dumps({"action": "approve", "ticker": ticker})
-    skip_body = json.dumps({"action": "skip", "ticker": ticker})
 
-    # ПОДТВЕРДИТЬ/ПРОПУСТИТЬ — http-действие: POST в тот же топик + закрыть
-    # уведомление (никуда не переходим). ГРАФИК — открывает TradingView H1.
-    actions_ru = (
-        f"http, ✅ ПОДТВЕРДИТЬ, {NTFY_URL}, "
-        f"method=POST, body='{approve_body}', clear=true; "
-        f"http, ❌ ПРОПУСТИТЬ, {NTFY_URL}, "
-        f"method=POST, body='{skip_body}', clear=true; "
-        f"view, 📈 ГРАФИК, {tv_link}"
-    )
+    # Единственная кнопка — открыть график. Решение (принять/пропустить)
+    # человек фиксирует вручную в approval_log.csv, глядя на скриншот.
+    actions_ru = f"view, 📈 ГРАФИК, {tv_link}"
 
     try:
         if screenshot_path and os.path.exists(screenshot_path):
@@ -200,18 +191,6 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
                 "priority": 5,
                 "tags": [d_tag, "rotating_light", "chart_with_upwards_trend"],
                 "actions": [
-                    {"action": "http",
-                     "label": "✅ ПОДТВЕРДИТЬ",
-                     "url": NTFY_URL,
-                     "method": "POST",
-                     "body": approve_body,
-                     "clear": True},
-                    {"action": "http",
-                     "label": "❌ ПРОПУСТИТЬ",
-                     "url": NTFY_URL,
-                     "method": "POST",
-                     "body": skip_body,
-                     "clear": True},
                     {"action": "view",
                      "label": "📈 ГРАФИК",
                      "url": tv_link},
