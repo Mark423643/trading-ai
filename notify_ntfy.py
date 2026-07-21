@@ -166,7 +166,10 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
     # ПОДТВЕРДИТЬ/ГРАФИК — просто открывают TradingView (view, без запросов).
     # ПРОПУСТИТЬ — http-действие: POST маленького подтверждения в тот же
     # топик ("Сигнал пропущен: TICKER") и закрывает основное уведомление.
-    skip_title = "Пропущено"
+    # Title в http-действии — это HTTP-заголовок (ASCII/latin-1 only),
+    # кириллица там ломает парсинг ntfy ("Unexpected char..."). Кириллицу
+    # оставляем только в body — он поддерживает UTF-8.
+    skip_title = "Skipped"
     skip_body = f"⏭ Сигнал пропущен: {ticker}"
     actions_ru = (
         f"view, ✅ ПОДТВЕРДИТЬ, {tv_link}, clear=true; "
