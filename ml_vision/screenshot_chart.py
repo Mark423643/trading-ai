@@ -181,15 +181,15 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
     )
     ax = axlist[0]
 
-    # ── Расширяем ось Y так, чтобы уровень/стоп/цель гарантированно попали
-    #    в кадр, даже если они за пределами диапазона видимых свечей ──
-    y_vals = [v for v in (level, stop, target) if v is not None]
-    if y_vals:
-        y0, y1 = ax.get_ylim()
-        y0 = min(y0, min(y_vals))
-        y1 = max(y1, max(y_vals))
-        pad = (y1 - y0) * 0.05 or 0.01
-        ax.set_ylim(y0 - pad, y1 + pad)
+    # ── Ось Y охватывает и свечи, и уровень/стоп/цель/вход, даже если
+    #    они далеко за пределами видимого диапазона цен ──
+    all_prices = [float(df["Low"].min()), float(df["High"].max())]
+    for v in (level, stop, target, entry):
+        if v is not None:
+            all_prices.append(float(v))
+    y_min = min(all_prices) * 0.995
+    y_max = max(all_prices) * 1.005
+    ax.set_ylim(y_min, y_max)
 
     # ── Текущая цена — подпись справа, как в TradingView ──
     last_close = float(df["Close"].iloc[-1])

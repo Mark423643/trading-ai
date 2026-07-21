@@ -11,7 +11,8 @@ import requests
 from datetime import datetime
 
 NTFY_TOPIC = os.getenv("NTFY_TOPIC", "mark_trading_2026")
-NTFY_URL = f"https://ntfy.sh/{NTFY_TOPIC}"
+NTFY_SERVER = "https://ntfy.sh"
+NTFY_URL = f"{NTFY_SERVER}/{NTFY_TOPIC}"
 
 
 def _send(message: str, title: str = "", priority: int = 3, tags: list = None):
@@ -134,8 +135,9 @@ def generate_status_comment(pct_to_tp: float, pct_to_sl: float, direction: str) 
 
 def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str = None) -> bool:
     """Отправляет сигнал в NTFY — всё на русском.
-    Картинка: query params (поддерживают UTF-8 через URL-encoding).
-    Текст: JSON API.
+    Картинка: HTTP-заголовки (UTF-8 байты, без latin-1 ошибок).
+    Текст: JSON Publish API — POST на КОРНЕВОЙ URL сервера с "topic" в теле
+    (POST на .../{topic} трактует JSON как обычный текст сообщения — мусор).
     """
     ticker    = sig["ticker"]
     direction = sig["direction"]
@@ -166,12 +168,10 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
 
     # ПОДТВЕРДИТЬ/ПРОПУСТИТЬ — http-действие: POST в тот же топик + закрыть
     # уведомление (никуда не переходим). ГРАФИК — открывает TradingView H1.
-    # body в кавычках, т.к. JSON содержит запятую внутри одного параметра
-    # action-синтаксиса ntfy.
     actions_ru = (
-        f"http, ✅ ПОДТВЕРДИТЬ, https://ntfy.sh/{NTFY_TOPIC}, "
+        f"http, ✅ ПОДТВЕРДИТЬ, {NTFY_URL}, "
         f"method=POST, body='{approve_body}', clear=true; "
-        f"http, ❌ ПРОПУСТИТЬ, https://ntfy.sh/{NTFY_TOPIC}, "
+        f"http, ❌ ПРОПУСТИТЬ, {NTFY_URL}, "
         f"method=POST, body='{skip_body}', clear=true; "
         f"view, 📈 ГРАФИК, {tv_link}"
     )
@@ -180,16 +180,18 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
         if screenshot_path and os.path.exists(screenshot_path):
             with open(screenshot_path, "rb") as f:
                 img_data = f.read()
-            params = {
-                "title": title_ru,
-                "message": msg_ru,
-                "priority": "5",
-                "tags": f"{d_tag},rotating_light",
-                "filename": f"{ticker}_signal.png",
-                "actions": actions_ru,
+            headers = {
+                "Title": title_ru.encode("utf-8"),
+                # HTTP-заголовок не может содержать настоящий перевод строки —
+                # передаём литерал \n, ntfy разворачивает его на своей стороне
+                "Message": msg_ru.replace("\n", "\\n").encode("utf-8"),
+                "Priority": b"5",
+                "Tags": f"{d_tag},rotating_light".encode("utf-8"),
+                "Filename": f"{ticker}_signal.png".encode("utf-8"),
+                "Actions": actions_ru.encode("utf-8"),
             }
             r = requests.put(NTFY_URL, data=img_data,
-                             params=params, timeout=15)
+                             headers=headers, timeout=15)
         else:
             payload = {
                 "topic": NTFY_TOPIC,
@@ -200,13 +202,13 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
                 "actions": [
                     {"action": "http",
                      "label": "✅ ПОДТВЕРДИТЬ",
-                     "url": f"https://ntfy.sh/{NTFY_TOPIC}",
+                     "url": NTFY_URL,
                      "method": "POST",
                      "body": approve_body,
                      "clear": True},
                     {"action": "http",
                      "label": "❌ ПРОПУСТИТЬ",
-                     "url": f"https://ntfy.sh/{NTFY_TOPIC}",
+                     "url": NTFY_URL,
                      "method": "POST",
                      "body": skip_body,
                      "clear": True},
@@ -215,7 +217,8 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
                      "url": tv_link},
                 ],
             }
-            r = requests.post(NTFY_URL, json=payload, timeout=10)
+            # JSON Publish API — обязательно корневой URL сервера, не /{topic}
+            r = requests.post(NTFY_SERVER, json=payload, timeout=10)
         return r.status_code == 200
     except Exception as e:
         print(f"  [NTFY ERR] {e}")
