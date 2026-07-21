@@ -163,13 +163,15 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
         f"ATR: {atr_val:.4f} | Тренд: {trend}"
     )
 
-    # 3 кнопки, все типа "view" — только открывают ссылку и закрывают
-    # уведомление, никаких POST-запросов и JSON-мусора в топике.
-    # Решение (принять/пропустить) человек фиксирует вручную в
-    # approval_log.csv, глядя на скриншот.
+    # ПОДТВЕРДИТЬ/ГРАФИК — просто открывают TradingView (view, без запросов).
+    # ПРОПУСТИТЬ — http-действие: POST маленького подтверждения в тот же
+    # топик ("Сигнал пропущен: TICKER") и закрывает основное уведомление.
+    skip_title = "Пропущено"
+    skip_body = f"⏭ Сигнал пропущен: {ticker}"
     actions_ru = (
         f"view, ✅ ПОДТВЕРДИТЬ, {tv_link}, clear=true; "
-        f"view, ❌ ПРОПУСТИТЬ, {NTFY_SERVER}, clear=true; "
+        f"http, ❌ ПРОПУСТИТЬ, {NTFY_URL}, "
+        f"method=POST, headers.Title={skip_title}, body={skip_body}, clear=true; "
         f"view, 📈 ГРАФИК, {tv_link}"
     )
 
@@ -200,9 +202,13 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
                     {"action": "view",
                      "label": "✅ ПОДТВЕРДИТЬ",
                      "url": tv_link, "clear": True},
-                    {"action": "view",
+                    {"action": "http",
                      "label": "❌ ПРОПУСТИТЬ",
-                     "url": NTFY_SERVER, "clear": True},
+                     "url": NTFY_URL,
+                     "method": "POST",
+                     "headers": {"Title": skip_title},
+                     "body": skip_body,
+                     "clear": True},
                     {"action": "view",
                      "label": "📈 ГРАФИК",
                      "url": tv_link},
