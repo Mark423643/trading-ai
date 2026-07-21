@@ -43,7 +43,6 @@ try:
         send_portfolio_radar as _ntfy_radar,
         generate_status_comment as _ntfy_comment,
         send_signal_for_approval as _ntfy_approval,
-        send_signal_screenshot as _ntfy_screenshot,
     )
     _NTFY_AVAILABLE = True
     try:
@@ -878,22 +877,33 @@ else:
 
         if _NTFY_AVAILABLE:
             if os.getenv("APPROVAL_MODE", "1") == "1":
-                _sent_with_screenshot = False
+                _shot_path = None
                 if _VISION_SCREENSHOT_AVAILABLE:
                     try:
                         _shot_path = _make_screenshot(
                             sig["ticker"], sig["bar_time"], sig["level"],
                             sig["entry"], sig["stop"], sig["target"],
-                            sig["direction"],
+                            sig["direction"], timeframe="H1",
                         )
-                        _sent_with_screenshot = _ntfy_screenshot(sig, _shot_path)
+                        print(f"      Screenshot: {_shot_path}")
                     except Exception as _e:
-                        print(f"      [WARN] screenshot failed ({_e}), fallback to text")
-                if not _sent_with_screenshot:
-                    _ntfy_approval(sig)
+                        print(f"      [WARN] screenshot failed: {_e}")
+                _ntfy_approval(
+                    sig,
+                    sig.get("atr_daily", 0),
+                    screenshot_path=_shot_path,
+                )
+                if _shot_path and os.path.exists(_shot_path):
+                    import shutil
+                    _pend = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                         "ml_vision", "data", "pending")
+                    os.makedirs(_pend, exist_ok=True)
+                    _ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    shutil.copy(_shot_path, os.path.join(
+                        _pend, f"{sig['ticker']}_{sig['direction']}_{_ts}.png"))
                 _append_approval_log(sig, "PENDING")
-                print(f"      [APPROVAL] Sent for approval"
-                      f"{' (screenshot)' if _sent_with_screenshot else ' (text)'}")
+                print(f"      [APPROVAL] Sent"
+                      f"{' (screenshot)' if _shot_path else ' (text)'}")
             else:
                 atr_val = sig.get("atr_daily", 0)
                 risk = sig["risk"]

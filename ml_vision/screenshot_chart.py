@@ -186,13 +186,17 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
 
 def make_screenshot(ticker: str, bar_time, level: float, entry: float,
                      stop: float, target: float, direction: str,
-                     out_dir: str = None, timeframe: str = "M5",
-                     bars_before: int = 99) -> str:
-    """Готовит PNG-скриншот сигнала для отправки в NTFY: 100 баров M5 до
+                     out_dir: str = None, timeframe: str = "H1",
+                     bars_before: int = 99, df: "pd.DataFrame | None" = None) -> str:
+    """Готовит PNG-скриншот сигнала для отправки в NTFY: 100 баров до
     bar_time включительно, уровень (жёлтый), стоп (красный), цель (зелёный),
     вход (синяя стрелка). Возвращает путь к сохранённому файлу.
+
+    df — если передан, используется напрямую (свежие данные из step11b),
+    иначе загружается из файлового кэша.
     """
-    df = load_ticker_df(ticker, timeframe)
+    if df is None:
+        df = load_ticker_df(ticker, timeframe)
     window = slice_window(df, bar_time, bars_before=bars_before, bars_after=0)
     if len(window) == 0:
         raise ValueError(f"Пустое окно данных для {ticker} @ {bar_time}")
@@ -210,7 +214,7 @@ def make_screenshot(ticker: str, bar_time, level: float, entry: float,
         window, out_path,
         level=level, stop=stop, target=target, entry=entry,
         direction=direction,
-        title=f"{ticker.upper()} M5 — {direction}",
+        title=f"{ticker.upper()} {timeframe.upper()} — {direction}",
     )
     return out_path
 

@@ -131,49 +131,63 @@ def generate_status_comment(pct_to_tp: float, pct_to_sl: float, direction: str) 
     else:
         return "Позиция активна, всё штатно ✅"
 
-def send_signal_for_approval(sig: dict) -> bool:
-    """Шаблон D — Запрос одобрения сигнала с кнопками ОДОБРИТЬ / ПРОПУСТИТЬ.
-    Кнопка ОДОБРИТЬ открывает TradingView для визуальной проверки.
-    Кнопка ПРОПУСТИТЬ закрывает уведомление без действия.
+def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str = None) -> bool:
+    """Отправляет сигнал в NTFY с кнопкой TradingView H1.
+    Если есть screenshot_path — отправляет картинку, иначе текст.
     """
-    ticker     = sig["ticker"]
-    direction  = sig["direction"]
-    d_ru       = "ЛОНГ" if direction == "LONG" else "ШОРТ"
-    d_tag      = "green_circle" if direction == "LONG" else "red_circle"
-    entry      = sig.get("entry", 0)
-    stop       = sig.get("stop", 0)
-    target     = sig.get("target", 0)
-    rr         = sig.get("rr", "?")
-    level      = sig.get("level", "?")
-    atr_daily  = sig.get("atr_daily", 0)
-    trend      = sig.get("trend", "?")
-    bar_time   = sig.get("bar_time", "?")
+    ticker    = sig["ticker"]
+    direction = sig["direction"]
+    entry     = sig.get("entry", 0)
+    stop      = sig.get("stop", 0)
+    target    = sig.get("target", 0)
+    level     = sig.get("level", 0)
+    rr        = sig.get("rr", 3.0)
+    trend     = sig.get("trend", "?")
 
-    tv_url = f"https://www.tradingview.com/chart/?symbol=MOEX:{ticker}"
+    d_emoji = "LONG" if direction == "LONG" else "SHORT"
+    d_tag   = "green_circle" if direction == "LONG" else "red_circle"
 
-    msg = (
-        f"\u23f3 ОДОБРЕНИЕ: {ticker} \u2192 {d_ru}\n"
-        f"Бар: {bar_time}\n"
-        f"Вход: {entry:.2f} | Стоп: {stop:.2f} | Цель: {target:.2f}\n"
-        f"R:R = {rr}:1 | Уровень: {level}\n"
-        f"ATR дневной: {atr_daily:.4f} | Тренд: {trend}\n"
-        f"Открой график и реши: ОДОБРИТЬ или ПРОПУСТИТЬ"
+    tv_link = (
+        f"https://www.tradingview.com/chart/"
+        f"?symbol=MOEX:{ticker}&interval=60"
     )
 
-    safe_title = f"APPROVAL? {ticker} {direction}".encode("ascii", errors="replace").decode("ascii")
+    msg = (
+        f"SIGNAL: {ticker} {d_emoji}\n"
+        f"Entry:  {entry:.2f}\n"
+        f"Stop:   {stop:.2f}\n"
+        f"Target: {target:.2f}\n"
+        f"Level:  {level:.2f}\n"
+        f"R:R = {rr:.1f}:1\n"
+        f"ATR: {atr_val:.4f} | Trend: {trend}\n"
+        f"Lines: Y=level R=stop G=target B=entry"
+    )
+
     headers = {
-        "Title": safe_title,
+        "Title":    f"SIGNAL {ticker} {direction}",
         "Priority": "5",
-        "Tags": f"{d_tag},eyes,bell",
-        # HTTP headers не поддерживают UTF-8 → ASCII метки кнопок
-        "Actions": (
-            f"view, APPROVE (TV), {tv_url}, clear=true; "
-            f"view, SKIP, https://ntfy.sh/{NTFY_TOPIC}, clear=true"
-        ),
+        "Tags":     f"{d_tag},rotating_light,chart_with_upwards_trend",
+        "Actions":  f"view, TV H1, {tv_link}, clear=true",
     }
+
     try:
-        r = requests.post(NTFY_URL, data=msg.encode("utf-8"),
-                          headers=headers, timeout=10)
+        if screenshot_path and os.path.exists(screenshot_path):
+            with open(screenshot_path, "rb") as f:
+                img_data = f.read()
+            headers["Filename"] = f"{ticker}_signal.png"
+            r = requests.post(
+                NTFY_URL,
+                data=img_data,
+                headers=headers,
+                timeout=15,
+            )
+        else:
+            r = requests.post(
+                NTFY_URL,
+                data=msg.encode("utf-8"),
+                headers=headers,
+                timeout=10,
+            )
         return r.status_code == 200
     except Exception as e:
         print(f"  [NTFY ERR] {e}")
@@ -196,7 +210,7 @@ def send_signal_screenshot(sig: dict, screenshot_path: str) -> bool:
         print(f"  [NTFY ERR] скриншот не найден: {screenshot_path}")
         return False
 
-    tv_url = f"https://www.tradingview.com/chart/?symbol=MOEX:{ticker}&interval=5"
+    tv_url = f"https://www.tradingview.com/chart/?symbol=MOEX:{ticker}&interval=60"
 
     safe_title = f"SIGNAL {ticker} {direction}".encode("ascii", errors="replace").decode("ascii")
     headers = {
