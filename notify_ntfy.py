@@ -163,9 +163,15 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
         f"ATR: {atr_val:.4f} | Тренд: {trend}"
     )
 
-    # Единственная кнопка — открыть график. Решение (принять/пропустить)
-    # человек фиксирует вручную в approval_log.csv, глядя на скриншот.
-    actions_ru = f"view, 📈 ГРАФИК, {tv_link}"
+    # 3 кнопки, все типа "view" — только открывают ссылку и закрывают
+    # уведомление, никаких POST-запросов и JSON-мусора в топике.
+    # Решение (принять/пропустить) человек фиксирует вручную в
+    # approval_log.csv, глядя на скриншот.
+    actions_ru = (
+        f"view, ✅ ПОДТВЕРДИТЬ, {tv_link}, clear=true; "
+        f"view, ❌ ПРОПУСТИТЬ, {NTFY_SERVER}, clear=true; "
+        f"view, 📈 ГРАФИК, {tv_link}"
+    )
 
     try:
         if screenshot_path and os.path.exists(screenshot_path):
@@ -191,6 +197,12 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
                 "priority": 5,
                 "tags": [d_tag, "rotating_light", "chart_with_upwards_trend"],
                 "actions": [
+                    {"action": "view",
+                     "label": "✅ ПОДТВЕРДИТЬ",
+                     "url": tv_link, "clear": True},
+                    {"action": "view",
+                     "label": "❌ ПРОПУСТИТЬ",
+                     "url": NTFY_SERVER, "clear": True},
                     {"action": "view",
                      "label": "📈 ГРАФИК",
                      "url": tv_link},
