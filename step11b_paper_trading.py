@@ -133,7 +133,7 @@ from config_trading import (
     MOEX_FUTURES_PERPETUAL,
     COMMISSION_PCT, SLIPPAGE_STEPS,
     MAX_COST_RATIO, COST_RATIO_ACTION, COST_RR_OVERRIDE,
-    MIN_LEVEL_TOUCHES, BREAKEVEN_R,
+    BREAKEVEN_R,
 )
 
 CHECK_LAST_N_BARS   = 720
@@ -512,17 +512,8 @@ def detect_retest(dfh, i, level_price, is_long):
 
 
 # ───────────────────────────────────────────────────────
-# Gerchik filters (G4, G6)
+# Gerchik filter G4 (no squeeze)
 # ───────────────────────────────────────────────────────
-def count_level_touches(df1d, level_price):
-    touches = 0
-    for k in range(len(df1d)):
-        dist = min(abs(df1d["High"].iloc[k] - level_price),
-                   abs(df1d["Low"].iloc[k] - level_price)) / (level_price + 1e-9)
-        if dist < 0.003:
-            touches += 1
-    return touches
-
 def is_squeeze(dfh, i):
     if i < 3:
         return False
@@ -566,11 +557,6 @@ def scan_ticker(ticker, df1d, dfh):
     lev_prices = pivots["level"].values
     lev_types  = pivots["type"].values
 
-    # G6: precompute touches per level
-    _touch_counts = {}
-    for _lp in lev_prices:
-        _touch_counts[_lp] = count_level_touches(df1d, _lp)
-
     signals = []
     scan_from = max(30, len(dfh) - CHECK_LAST_N_BARS)
 
@@ -609,10 +595,6 @@ def scan_ticker(ticker, df1d, dfh):
 
         # Cooldown
         if i - level_last_bar.get(level_price, -LEVEL_COOLDOWN_BARS - 1) < LEVEL_COOLDOWN_BARS:
-            continue
-
-        # G6: level must have >= MIN_LEVEL_TOUCHES touches
-        if _touch_counts.get(level_price, 0) < MIN_LEVEL_TOUCHES:
             continue
 
         # P3 retest detection
@@ -793,7 +775,7 @@ print(f"  Params:  STOP={STOP_ATR_FRAC}, RR={RR_TARGET}, VOID>={VOID_R_MULTIPLIE
 print(f"  Filters: E1(D1 trend)={'ON' if TREND_FILTER_D1 else 'OFF'}, "
       f"E2(H1 trend)={'ON' if TREND_FILTER_H1 else 'OFF'}, "
       f"B5(void>={VOID_R_MULTIPLIER}R), F1(cost<={MAX_COST_RATIO}), "
-      f"G4(no squeeze), G6(touches>={MIN_LEVEL_TOUCHES})")
+      f"G4(no squeeze)")
 print(f"  Breakeven: at {BREAKEVEN_R}xSL")
 print(f"  ATR exhaustion: day_range >= {ATR_EXHAUSTION} * daily_ATR")
 print(f"  NTFY: {'ON' if _NTFY_AVAILABLE else 'OFF'}")

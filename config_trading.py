@@ -2,7 +2,7 @@
 config_trading.py — единый блок конфигурации торговой стратегии.
 
 Паттерн P3 (Ретест после пробоя) на H1, Approval Mode.
-G4+G6+BE бэктест 21.07.2026: N=104, Exp=+0.622R, PF=2.46, WR=47%, 13/17 мес+.
+G4+BE бэктест 21.07.2026: N=210, Exp=+0.623R, PF=2.30, WR=45%, 2.03/нед, 24 тикера.
 
 Импорт:
     from config_trading import (
@@ -30,7 +30,6 @@ TREND_FILTER_D1    = True   # E1: D1 тренд совпадает (EMA20 дне
 TREND_FILTER_H1    = True   # E2: H1 тренд совпадает (EMA20 часовая)
 TREND_FILTER_SHORTS = True  # шорты только при дневном тренде вниз
 MIN_VOL_RATIO      = 1.0   # мин. объём бара / среднего (ослаблен)
-MIN_LEVEL_TOUCHES  = 3     # G6: мин. касаний уровня для входа
 
 # ── RSI фильтр ───────────────────────────────────────────
 RSI_LONG_MIN   = 40.0
@@ -58,12 +57,13 @@ COST_RATIO_ACTION = "skip"
 COST_RR_OVERRIDE  = 5.0
 
 # ── Тикеры (отобраны бэктестом P3, 20.07.2026) ──────────
-# 16 тикеров: N=104, Exp=+0.62R, PF=2.46, 1.0/нед, 13/17 мес+ (G4+G6+BE)
+# 24 тикера: N=210, Exp=+0.623R, PF=2.30, 2.03/нед (G4+BE, no G6)
 MOEX_TICKERS = [
-    "AKRN", "AQUA", "ASTR", "BELU", "ENPG",
-    "HEAD", "HNFG", "MGNT", "MVID", "OZON",
-    "POLY", "ROSN", "TATN", "TATNP", "VKCO",
-    "VSMO",
+    "AKRN", "ASTR", "BANEP", "BELU", "BSPB",
+    "DATA", "ENPG", "HEAD", "HHRU", "MGNT",
+    "MVID", "OZON", "PLZL", "POLY", "RASP",
+    "RNFT", "ROSN", "SIBN", "SMLT", "TATN",
+    "TATNP", "VKCO", "VSMO", "YDEX",
 ]
 
 # ── Фьючерсы MOEX FORTS ─────────────────────────────────
