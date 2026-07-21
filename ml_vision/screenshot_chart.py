@@ -91,7 +91,7 @@ _TV_DARK = mpf.make_mpf_style(
 
 def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
                   stop=None, target=None, title: str = "",
-                  entry_bar_idx: int = -1, direction: str = None,
+                  direction: str = None,
                   info_text: str = None) -> None:
     """Рендерит чистый M5-график в стиле TradingView Dark: без объёма и
     прочих индикаторов, уровень/стоп/цель — линии, текущая цена подписана
@@ -145,29 +145,6 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
         y1 = max(y1, max(y_vals))
         pad = (y1 - y0) * 0.05 or 0.01
         ax.set_ylim(y0 - pad, y1 + pad)
-
-    # ── Точка входа — синяя стрелка ──
-    if entry is not None:
-        n = len(df)
-        x_idx = entry_bar_idx if entry_bar_idx >= 0 else n + entry_bar_idx
-        x_idx = max(0, min(n - 1, x_idx))
-        is_long = str(direction).upper().startswith("LONG")
-        # Диапазон цен на графике — чтобы стрелка была заметного, но не гигантского размера
-        y_span = float(df["High"].max() - df["Low"].min()) or 1.0
-        offset = y_span * 0.06
-        if is_long:
-            y_from = float(entry) - offset * 2.2
-            y_to = float(entry) - offset * 0.3
-        else:
-            y_from = float(entry) + offset * 2.2
-            y_to = float(entry) + offset * 0.3
-        ax.annotate(
-            "", xy=(x_idx, y_to), xytext=(x_idx, y_from),
-            xycoords="data", textcoords="data",
-            arrowprops=dict(arrowstyle="-|>", color="#2962ff", lw=2.2,
-                             mutation_scale=16),
-            zorder=10,
-        )
 
     # ── Текущая цена — подпись справа, как в TradingView ──
     last_close = float(df["Close"].iloc[-1])
