@@ -1,7 +1,8 @@
 """
 Step 11b — Paper Trading: P3 Retest на H1, Approval Mode.
 Паттерн: пробой уровня → закрепление → ретест → отбой → вход.
-Фильтры: E1 (D1 trend), E2 (H1 trend), B5 (void>=3R), F1 (CostFilter).
+Фильтры: E1 (D1 trend), E2 (H1 trend), B5 (void>=3R), F1 (CostFilter),
+G4 (no squeeze), G6 (touches>=3). Breakeven at 2xSL.
 
 Запуск: cron каждый час (10-19 МСК).
 """
@@ -132,6 +133,7 @@ from config_trading import (
     MOEX_FUTURES_PERPETUAL,
     COMMISSION_PCT, SLIPPAGE_STEPS,
     MAX_COST_RATIO, COST_RATIO_ACTION, COST_RR_OVERRIDE,
+    MIN_LEVEL_TOUCHES, BREAKEVEN_R,
 )
 
 CHECK_LAST_N_BARS   = 720
@@ -376,11 +378,19 @@ def check_positions(positions: pd.DataFrame) -> list[dict]:
         if risk == 0:
             continue
 
+        # Breakeven: if price reached entry + BREAKEVEN_R * risk, move stop to entry
+        be_level = entry + BREAKEVEN_R * risk if is_long else entry - BREAKEVEN_R * risk
+        effective_stop = stop
+        if is_long and current >= be_level:
+            effective_stop = max(stop, entry)
+        elif not is_long and current <= be_level:
+            effective_stop = min(stop, entry)
+
         if is_long:
-            sl_hit = current <= stop
+            sl_hit = current <= effective_stop
             tp_hit = current >= target
         else:
-            sl_hit = current >= stop
+            sl_hit = current >= effective_stop
             tp_hit = current <= target
 
         if tp_hit:
@@ -388,9 +398,14 @@ def check_positions(positions: pd.DataFrame) -> list[dict]:
             exit_price = target
             pnl_r = (target - entry) / risk if is_long else (entry - target) / risk
         elif sl_hit:
-            status = "STOP_LOSS"
-            exit_price = stop
-            pnl_r = (stop - entry) / risk if is_long else (entry - stop) / risk
+            if effective_stop == entry:
+                status = "BREAKEVEN"
+                exit_price = entry
+                pnl_r = 0.0
+            else:
+                status = "STOP_LOSS"
+                exit_price = stop
+                pnl_r = (stop - entry) / risk if is_long else (entry - stop) / risk
         else:
             continue
 
@@ -497,6 +512,26 @@ def detect_retest(dfh, i, level_price, is_long):
 
 
 # ───────────────────────────────────────────────────────
+# Gerchik filters (G4, G6)
+# ───────────────────────────────────────────────────────
+def count_level_touches(df1d, level_price):
+    touches = 0
+    for k in range(len(df1d)):
+        dist = min(abs(df1d["High"].iloc[k] - level_price),
+                   abs(df1d["Low"].iloc[k] - level_price)) / (level_price + 1e-9)
+        if dist < 0.003:
+            touches += 1
+    return touches
+
+def is_squeeze(dfh, i):
+    if i < 3:
+        return False
+    return (dfh["Low"].iloc[i-2] > dfh["Low"].iloc[i-3] and
+            dfh["Low"].iloc[i-1] > dfh["Low"].iloc[i-2] and
+            dfh["Low"].iloc[i] > dfh["Low"].iloc[i-1])
+
+
+# ───────────────────────────────────────────────────────
 # Scanner core — one ticker
 # ───────────────────────────────────────────────────────
 def scan_ticker(ticker, df1d, dfh):
@@ -530,6 +565,11 @@ def scan_ticker(ticker, df1d, dfh):
 
     lev_prices = pivots["level"].values
     lev_types  = pivots["type"].values
+
+    # G6: precompute touches per level
+    _touch_counts = {}
+    for _lp in lev_prices:
+        _touch_counts[_lp] = count_level_touches(df1d, _lp)
 
     signals = []
     scan_from = max(30, len(dfh) - CHECK_LAST_N_BARS)
@@ -571,6 +611,10 @@ def scan_ticker(ticker, df1d, dfh):
         if i - level_last_bar.get(level_price, -LEVEL_COOLDOWN_BARS - 1) < LEVEL_COOLDOWN_BARS:
             continue
 
+        # G6: level must have >= MIN_LEVEL_TOUCHES touches
+        if _touch_counts.get(level_price, 0) < MIN_LEVEL_TOUCHES:
+            continue
+
         # P3 retest detection
         if not detect_retest(dfh, i, level_price, is_long):
             continue
@@ -588,6 +632,10 @@ def scan_ticker(ticker, df1d, dfh):
                 continue
             if not is_long and h_tr > 0:
                 continue
+
+        # G4: no squeeze (3 consecutive higher lows = breakout imminent)
+        if is_squeeze(dfh, i):
+            continue
 
         # Entry price
         is_last_bar = (i == len(dfh) - 1)
@@ -744,7 +792,9 @@ print(f"  Pattern: P3 Retest (breakout->retest->bounce)")
 print(f"  Params:  STOP={STOP_ATR_FRAC}, RR={RR_TARGET}, VOID>={VOID_R_MULTIPLIER}R")
 print(f"  Filters: E1(D1 trend)={'ON' if TREND_FILTER_D1 else 'OFF'}, "
       f"E2(H1 trend)={'ON' if TREND_FILTER_H1 else 'OFF'}, "
-      f"B5(void>={VOID_R_MULTIPLIER}R), F1(cost<={MAX_COST_RATIO})")
+      f"B5(void>={VOID_R_MULTIPLIER}R), F1(cost<={MAX_COST_RATIO}), "
+      f"G4(no squeeze), G6(touches>={MIN_LEVEL_TOUCHES})")
+print(f"  Breakeven: at {BREAKEVEN_R}xSL")
 print(f"  ATR exhaustion: day_range >= {ATR_EXHAUSTION} * daily_ATR")
 print(f"  NTFY: {'ON' if _NTFY_AVAILABLE else 'OFF'}")
 print("=" * 60)
