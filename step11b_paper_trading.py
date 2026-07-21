@@ -831,6 +831,8 @@ for ticker in MOEX_TICKERS:
     hourly_count = len(dfh) if dfh is not None else 0
     print(f"{hourly_count} bars | signals: {len(sigs)}" +
           (f" ({len(new_sigs)} new)" if len(sigs) != len(new_sigs) else ""))
+    for _s in new_sigs:
+        _s["_dfh"] = dfh
     all_new_signals.extend(new_sigs)
 
 _FUTURES_LIST = list(MOEX_FUTURES) + list(MOEX_FUTURES_PERPETUAL)
@@ -884,6 +886,7 @@ else:
                             sig["ticker"], sig["bar_time"], sig["level"],
                             sig["entry"], sig["stop"], sig["target"],
                             sig["direction"], timeframe="H1",
+                            df=sig.get("_dfh"),
                         )
                         print(f"      Screenshot: {_shot_path}")
                     except Exception as _e:

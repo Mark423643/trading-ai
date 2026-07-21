@@ -91,7 +91,8 @@ _TV_DARK = mpf.make_mpf_style(
 
 def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
                   stop=None, target=None, title: str = "",
-                  entry_bar_idx: int = -1, direction: str = None) -> None:
+                  entry_bar_idx: int = -1, direction: str = None,
+                  info_text: str = None) -> None:
     """Рендерит чистый M5-график в стиле TradingView Dark: без объёма и
     прочих индикаторов, уровень/стоп/цель — линии, текущая цена подписана
     справа, точка входа — синяя стрелка (если задан entry).
@@ -179,6 +180,13 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
         bbox=dict(boxstyle="square,pad=0.25", facecolor="#2962ff", edgecolor="none"),
     )
 
+    if info_text:
+        ax.text(0.02, 0.98, info_text, transform=ax.transAxes,
+                fontsize=7, color="#d1d4dc", va="top", ha="left",
+                fontfamily="monospace",
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="#1e222d",
+                          edgecolor="#2a2e39", alpha=0.9))
+
     fig.savefig(out_path, dpi=100, facecolor=_TV_DARK["figcolor"], pad_inches=0)
     import matplotlib.pyplot as plt
     plt.close(fig)
@@ -210,11 +218,20 @@ def make_screenshot(ticker: str, bar_time, level: float, entry: float,
     fname = f"{ticker.upper()}_{ts_str}_{direction}.png"
     out_path = os.path.join(out_dir, fname)
 
+    d_ru = "ЛОНГ" if str(direction).upper().startswith("LONG") else "ШОРТ"
+    info = (
+        f"{ticker.upper()} {d_ru}\n"
+        f"Вход:    {entry:.2f}\n"
+        f"Стоп:    {stop:.2f}\n"
+        f"Цель:    {target:.2f}\n"
+        f"Уровень: {level:.2f}"
+    )
     render_chart(
         window, out_path,
         level=level, stop=stop, target=target, entry=entry,
         direction=direction,
-        title=f"{ticker.upper()} {timeframe.upper()} — {direction}",
+        title=f"{ticker.upper()} {timeframe.upper()} — {d_ru}",
+        info_text=info,
     )
     return out_path
 
