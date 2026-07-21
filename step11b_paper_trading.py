@@ -771,13 +771,11 @@ print(f"  MOEX TQBR: {', '.join(MOEX_TICKERS)}")
 print(f"  FORTS:     {', '.join(list(MOEX_FUTURES) + list(MOEX_FUTURES_PERPETUAL))}")
 print(f"  Pattern: P3 Retest (breakout->retest->bounce)")
 print(f"  Params:  STOP={STOP_ATR_FRAC}, RR={RR_TARGET}, VOID>={VOID_R_MULTIPLIER}R")
-print(f"  Filters: E1(D1 trend)={'ON' if TREND_FILTER_D1 else 'OFF'}, "
-      f"E2(H1 trend)={'ON' if TREND_FILTER_H1 else 'OFF'}, "
-      f"B5(void>={VOID_R_MULTIPLIER}R), F1(cost<={MAX_COST_RATIO}), "
-      f"G4(no squeeze)")
-print(f"  Breakeven: at {BREAKEVEN_R}xSL")
-print(f"  ATR exhaustion: day_range >= {ATR_EXHAUSTION} * daily_ATR")
-print(f"  NTFY: {'ON' if _NTFY_AVAILABLE else 'OFF'}")
+print(f"  Фильтры: E1(тренд D1), E2(тренд H1), B5(пустота>={VOID_R_MULTIPLIER}R), "
+      f"F1(комиссия<={MAX_COST_RATIO}), G4(без сжатия)")
+print(f"  Безубыток: при {BREAKEVEN_R}xSL")
+print(f"  ATR день: диапазон >= {ATR_EXHAUSTION} * ATR")
+print(f"  Уведомления: {'ВКЛ' if _NTFY_AVAILABLE else 'ВЫКЛ'}")
 print("=" * 60)
 
 _MSK = timezone(timedelta(hours=3))
@@ -786,17 +784,17 @@ _DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 if _now_msk.weekday() in TRADE_DAYS_BLOCK:
     _dn = _DAY_NAMES[_now_msk.weekday()]
-    print(f"  [FILTER] {_dn} blocked. Exiting.")
+    print(f"  [ФИЛЬТР] {_dn} — торговля запрещена. Выход.")
     sys.exit(0)
 
 if _now_msk.hour in TRADE_HOURS_BLOCK:
-    print(f"  [FILTER] {_now_msk.hour}:00 MSK blocked. Exiting.")
+    print(f"  [ФИЛЬТР] {_now_msk.hour}:00 МСК — торговля запрещена. Выход.")
     sys.exit(0)
 
-print(f"  Scan time: {_now_msk.strftime('%H:%M MSK')} ({_DAY_NAMES[_now_msk.weekday()]})")
+print(f"  Время сканирования: {_now_msk.strftime('%H:%M МСК')} ({_DAY_NAMES[_now_msk.weekday()]})")
 
 # Step 1: Check open positions
-print("\n[TRACKING] Checking open positions...")
+print("\n[ПОЗИЦИИ] Проверка открытых позиций...")
 positions = load_positions()
 print(f"  Open positions: {len(positions)}")
 
@@ -819,7 +817,7 @@ for ticker in MOEX_TICKERS:
     print(f"  {ticker}...", end=" ", flush=True)
     df1d, dfh = fetch_moex(ticker)
     if df1d is None or dfh is None:
-        print("no data")
+        print("нет данных")
         continue
     sigs = scan_ticker(ticker, df1d, dfh)
     new_sigs = []
@@ -842,7 +840,7 @@ if _FUTURES_LIST:
         print(f"  {ticker}...", end=" ", flush=True)
         df1d, dfh = fetch_futures(ticker)
         if df1d is None or dfh is None:
-            print("no data")
+            print("нет данных")
             continue
         sigs = scan_ticker(ticker, df1d, dfh)
         new_sigs = []
@@ -862,9 +860,9 @@ if _FUTURES_LIST:
 print("\n" + "=" * 60)
 
 if not all_new_signals:
-    print("  No new signals.")
+    print("  Новых сигналов нет.")
 else:
-    print(f"  SIGNALS FOUND: {len(all_new_signals)}")
+    print(f"  НАЙДЕНО СИГНАЛОВ: {len(all_new_signals)}")
     print("=" * 60)
     for i, sig in enumerate(all_new_signals, 1):
         dir_emoji = "^" if sig["direction"] == "LONG" else "v"
@@ -888,9 +886,9 @@ else:
                             sig["direction"], timeframe="H1",
                             df=sig.get("_dfh"),
                         )
-                        print(f"      Screenshot: {_shot_path}")
+                        print(f"      Скриншот: {_shot_path}")
                     except Exception as _e:
-                        print(f"      [WARN] screenshot failed: {_e}")
+                        print(f"      Скриншот не создан: {_e}")
                 _ntfy_approval(
                     sig,
                     sig.get("atr_daily", 0),
@@ -905,8 +903,8 @@ else:
                     shutil.copy(_shot_path, os.path.join(
                         _pend, f"{sig['ticker']}_{sig['direction']}_{_ts}.png"))
                 _append_approval_log(sig, "PENDING")
-                print(f"      [APPROVAL] Sent"
-                      f"{' (screenshot)' if _shot_path else ' (text)'}")
+                print(f"      Отправлено в NTFY"
+                      f"{' (скриншот)' if _shot_path else ' (текст)'}")
             else:
                 atr_val = sig.get("atr_daily", 0)
                 risk = sig["risk"]

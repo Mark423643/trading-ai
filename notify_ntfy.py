@@ -162,8 +162,9 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
         f"ATR: {atr_val:.4f} | Тренд: {trend}"
     )
     actions_ru = (
-        f"view, ✅ ПРИНЯТЬ (TV H1), {tv_link}, clear=true; "
-        f"view, ❌ ПРОПУСТИТЬ, https://ntfy.sh/{NTFY_TOPIC}, clear=true"
+        f"view, ✅ ПОДТВЕРДИТЬ, {tv_link}, clear=true; "
+        f"view, ❌ ПРОПУСТИТЬ, https://ntfy.sh/{NTFY_TOPIC}, clear=true; "
+        f"view, 📈 ГРАФИК, {tv_link}"
     )
 
     try:
@@ -189,11 +190,14 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
                 "tags": [d_tag, "rotating_light", "chart_with_upwards_trend"],
                 "actions": [
                     {"action": "view",
-                     "label": "✅ ПРИНЯТЬ (TV H1)",
+                     "label": "✅ ПОДТВЕРДИТЬ",
                      "url": tv_link, "clear": True},
                     {"action": "view",
                      "label": "❌ ПРОПУСТИТЬ",
                      "url": f"https://ntfy.sh/{NTFY_TOPIC}", "clear": True},
+                    {"action": "view",
+                     "label": "📈 ГРАФИК",
+                     "url": tv_link},
                 ],
             }
             r = requests.post(NTFY_URL, json=payload, timeout=10)
@@ -202,44 +206,3 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
         print(f"  [NTFY ERR] {e}")
         return False
 
-
-def send_signal_screenshot(sig: dict, screenshot_path: str) -> bool:
-    """Отправляет в NTFY PNG-скриншот сигнала (уровень/стоп/цель/вход
-    нарисованы на графике в screenshot_chart.make_screenshot()) вместо
-    текстового сообщения. Кнопки: открыть TradingView, APPROVE, SKIP.
-
-    HTTP-заголовки поддерживают только ASCII — Title и Actions без кириллицы,
-    описание сделки остаётся только на самой картинке.
-    """
-    ticker    = sig["ticker"]
-    direction = sig["direction"]
-    d_tag     = "green_circle" if direction == "LONG" else "red_circle"
-
-    if not os.path.exists(screenshot_path):
-        print(f"  [NTFY ERR] скриншот не найден: {screenshot_path}")
-        return False
-
-    tv_url = f"https://www.tradingview.com/chart/?symbol=MOEX:{ticker}&interval=60"
-
-    safe_title = f"SIGNAL {ticker} {direction}".encode("ascii", errors="replace").decode("ascii")
-    headers = {
-        "Title": safe_title,
-        "Priority": "5",
-        "Tags": f"{d_tag},rotating_light",
-        "Filename": f"{ticker}.png",
-        # ASCII-only: HTTP-заголовки не поддерживают кириллицу
-        "Actions": (
-            f"view, TradingView, {tv_url}; "
-            f"http, APPROVE, {NTFY_URL}, method=POST, "
-            f"headers.X-Title=APPROVED {ticker} {direction}, clear=true; "
-            f"http, SKIP, {NTFY_URL}, method=POST, "
-            f"headers.X-Title=SKIPPED {ticker}, clear=true"
-        ),
-    }
-    try:
-        with open(screenshot_path, "rb") as f:
-            r = requests.post(NTFY_URL, data=f.read(), headers=headers, timeout=15)
-        return r.status_code == 200
-    except Exception as e:
-        print(f"  [NTFY ERR] {e}")
-        return False
