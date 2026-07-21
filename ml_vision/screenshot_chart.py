@@ -251,7 +251,15 @@ def make_screenshot(ticker: str, bar_time, level: float, entry: float,
     fname = f"{ticker.upper()}_{ts_str}_{direction}.png"
     out_path = os.path.join(out_dir, fname)
 
-    d_ru = "ЛОНГ" if str(direction).upper().startswith("LONG") else "ШОРТ"
+    is_long = str(direction).upper().startswith("LONG")
+    if is_long:
+        assert stop < entry < target, (
+            f"LONG: стоп {stop} должен быть < входа {entry} < цели {target}")
+    else:
+        assert target < entry < stop, (
+            f"SHORT: цель {target} должна быть < входа {entry} < стопа {stop}")
+
+    d_ru = "ЛОНГ" if is_long else "ШОРТ"
     info = (
         f"{ticker.upper()} {d_ru}\n"
         f"Вход:    {entry:.2f}\n"

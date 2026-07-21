@@ -161,9 +161,18 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
         f"Уровень: {level:.2f} | R:R {rr:.1f}:1\n"
         f"ATR: {atr_val:.4f} | Тренд: {trend}"
     )
+    approve_body = json.dumps({"action": "approve", "ticker": ticker})
+    skip_body = json.dumps({"action": "skip", "ticker": ticker})
+
+    # ПОДТВЕРДИТЬ/ПРОПУСТИТЬ — http-действие: POST в тот же топик + закрыть
+    # уведомление (никуда не переходим). ГРАФИК — открывает TradingView H1.
+    # body в кавычках, т.к. JSON содержит запятую внутри одного параметра
+    # action-синтаксиса ntfy.
     actions_ru = (
-        f"view, ✅ ПОДТВЕРДИТЬ, {tv_link}, clear=true; "
-        f"view, ❌ ПРОПУСТИТЬ, https://ntfy.sh/{NTFY_TOPIC}, clear=true; "
+        f"http, ✅ ПОДТВЕРДИТЬ, https://ntfy.sh/{NTFY_TOPIC}, "
+        f"method=POST, body='{approve_body}', clear=true; "
+        f"http, ❌ ПРОПУСТИТЬ, https://ntfy.sh/{NTFY_TOPIC}, "
+        f"method=POST, body='{skip_body}', clear=true; "
         f"view, 📈 ГРАФИК, {tv_link}"
     )
 
@@ -189,12 +198,18 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
                 "priority": 5,
                 "tags": [d_tag, "rotating_light", "chart_with_upwards_trend"],
                 "actions": [
-                    {"action": "view",
+                    {"action": "http",
                      "label": "✅ ПОДТВЕРДИТЬ",
-                     "url": tv_link, "clear": True},
-                    {"action": "view",
+                     "url": f"https://ntfy.sh/{NTFY_TOPIC}",
+                     "method": "POST",
+                     "body": approve_body,
+                     "clear": True},
+                    {"action": "http",
                      "label": "❌ ПРОПУСТИТЬ",
-                     "url": f"https://ntfy.sh/{NTFY_TOPIC}", "clear": True},
+                     "url": f"https://ntfy.sh/{NTFY_TOPIC}",
+                     "method": "POST",
+                     "body": skip_body,
+                     "clear": True},
                     {"action": "view",
                      "label": "📈 ГРАФИК",
                      "url": tv_link},
