@@ -172,10 +172,11 @@ def render_chart(df: pd.DataFrame, out_path: str, level=None, entry=None,
     # ── Текущая цена — подпись справа, как в TradingView ──
     last_close = float(df["Close"].iloc[-1])
     x0, x1 = ax.get_xlim()
-    ax.set_xlim(x0, x1 + (x1 - x0) * 0.06)  # место под подпись цены справа
+    pad = (x1 - x0) * 0.14
+    ax.set_xlim(x0, x1 + pad)
     ax.annotate(
         f" {last_close:.2f} ",
-        xy=(x1, last_close), xycoords="data",
+        xy=(x1 + pad * 0.15, last_close), xycoords="data",
         va="center", ha="left", fontsize=8, color="#131722",
         bbox=dict(boxstyle="square,pad=0.25", facecolor="#2962ff", edgecolor="none"),
     )

@@ -133,9 +133,9 @@ def generate_status_comment(pct_to_tp: float, pct_to_sl: float, direction: str) 
         return "Позиция активна, всё штатно ✅"
 
 def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str = None) -> bool:
-    """Отправляет сигнал в NTFY с кнопками ОДОБРИТЬ / ПРОПУСТИТЬ / TradingView H1.
-    Если есть screenshot_path — картинка + кнопки (ASCII headers).
-    Если нет — JSON API с русским текстом.
+    """Отправляет сигнал в NTFY — всё на русском.
+    Картинка: query params (поддерживают UTF-8 через URL-encoding).
+    Текст: JSON API.
     """
     ticker    = sig["ticker"]
     direction = sig["direction"]
@@ -154,45 +154,45 @@ def send_signal_for_approval(sig: dict, atr_val: float = 0, screenshot_path: str
         f"?symbol=MOEX:{ticker}&interval=60"
     )
 
+    title_ru = f"⚡ СИГНАЛ: {ticker} {d_ru}"
+    msg_ru = (
+        f"Вход: {entry:.2f} | Стоп: {stop:.2f} | "
+        f"Цель: {target:.2f}\n"
+        f"Уровень: {level:.2f} | R:R {rr:.1f}:1\n"
+        f"ATR: {atr_val:.4f} | Тренд: {trend}"
+    )
+    actions_ru = (
+        f"view, ✅ ПРИНЯТЬ (TV H1), {tv_link}, clear=true; "
+        f"view, ❌ ПРОПУСТИТЬ, https://ntfy.sh/{NTFY_TOPIC}, clear=true"
+    )
+
     try:
         if screenshot_path and os.path.exists(screenshot_path):
             with open(screenshot_path, "rb") as f:
                 img_data = f.read()
-            headers = {
-                "Title":    f"SIGNAL {ticker} {direction}",
-                "Priority": "5",
-                "Tags":     f"{d_tag},rotating_light",
-                "Filename": f"{ticker}_signal.png",
-                "Actions":  (
-                    f"view, APPROVE (TV H1), {tv_link}, clear=true; "
-                    f"view, SKIP, https://ntfy.sh/{NTFY_TOPIC}, clear=true"
-                ),
+            params = {
+                "title": title_ru,
+                "message": msg_ru,
+                "priority": "5",
+                "tags": f"{d_tag},rotating_light",
+                "filename": f"{ticker}_signal.png",
+                "actions": actions_ru,
             }
-            r = requests.post(NTFY_URL, data=img_data,
-                              headers=headers, timeout=15)
+            r = requests.put(NTFY_URL, data=img_data,
+                             params=params, timeout=15)
         else:
             payload = {
                 "topic": NTFY_TOPIC,
-                "title": f"\u26a1 \u0421\u0418\u0413\u041d\u0410\u041b: {ticker} {d_ru}",
-                "message": (
-                    f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
-                    f"\u0412\u0445\u043e\u0434:    {entry:.2f} \u0440\u0443\u0431\n"
-                    f"\u0421\u0442\u043e\u043f:    {stop:.2f} \u0440\u0443\u0431\n"
-                    f"\u0426\u0435\u043b\u044c:    {target:.2f} \u0440\u0443\u0431\n"
-                    f"\u0423\u0440\u043e\u0432\u0435\u043d\u044c: {level:.2f} \u0440\u0443\u0431\n"
-                    f"R:R = {rr:.1f}:1\n"
-                    f"ATR: {atr_val:.4f} | \u0422\u0440\u0435\u043d\u0434: {trend}\n"
-                    f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
-                    f"\U0001f7e1 \u0423\u0440\u043e\u0432\u0435\u043d\u044c  \U0001f534 \u0421\u0442\u043e\u043f  \U0001f7e2 \u0426\u0435\u043b\u044c  \U0001f535 \u0412\u0445\u043e\u0434"
-                ),
+                "title": title_ru,
+                "message": msg_ru,
                 "priority": 5,
                 "tags": [d_tag, "rotating_light", "chart_with_upwards_trend"],
                 "actions": [
-                    {"action": "view", "label": "\U0001f4c8 TradingView H1",
+                    {"action": "view",
+                     "label": "✅ ПРИНЯТЬ (TV H1)",
                      "url": tv_link, "clear": True},
-                    {"action": "view", "label": "\u2705 \u041e\u0414\u041e\u0411\u0420\u0418\u0422\u042c",
-                     "url": tv_link, "clear": True},
-                    {"action": "view", "label": "\u274c \u041f\u0420\u041e\u041f\u0423\u0421\u0422\u0418\u0422\u042c",
+                    {"action": "view",
+                     "label": "❌ ПРОПУСТИТЬ",
                      "url": f"https://ntfy.sh/{NTFY_TOPIC}", "clear": True},
                 ],
             }
