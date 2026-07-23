@@ -47,8 +47,8 @@ MODEL_THRESHOLD = 0.0
 MODEL_PROB_MAX  = 1.0
 
 # ── Фильтр по времени ───────────────────────────────────
-TRADE_HOURS_BLOCK = [13, 16, 17]
-TRADE_DAYS_BLOCK  = [3, 4]
+TRADE_HOURS_BLOCK = []            # снято: часы 13/16/17 прибыльны (Exp +0.352R)
+TRADE_DAYS_BLOCK  = [4]           # только пятница (Exp +0.056R); чт вернули (Exp +0.392R)
 
 # ── Комиссия и проскальзывание ───────────────────────────
 COMMISSION_PCT  = 0.0003
