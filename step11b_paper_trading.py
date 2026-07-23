@@ -135,8 +135,28 @@ from config_trading import (
     MOEX_FUTURES_PERPETUAL,
     COMMISSION_PCT, SLIPPAGE_STEPS,
     MAX_COST_RATIO, COST_RATIO_ACTION, COST_RR_OVERRIDE,
-    BREAKEVEN_R,
+    BREAKEVEN_R, CAPITAL,
 )
+
+# ── Точный расчёт лотов для уведомлений (та же формула, что при исполнении) ──
+try:
+    from broker_finam import FinamBroker as _FinamBroker
+    _lots_broker = _FinamBroker()
+except Exception:
+    _lots_broker = None
+
+def _notify_lots(ticker, risk, entry):
+    """Число лотов той же calc_lots(), что и при реальном исполнении
+    (RISK_PCT от депозита + лимит MAX_POSITION_VALUE_RUB). Живой баланс
+    известен только в момент сделки, поэтому здесь free_cash ≈ CAPITAL."""
+    if _lots_broker is not None and risk > 0:
+        try:
+            n = _lots_broker.calc_lots(CAPITAL, risk, ticker, entry_price=entry)
+            if n > 0:
+                return n
+        except Exception:
+            pass
+    return max(1, int(100.0 / risk)) if risk > 0 else 1
 
 CHECK_LAST_N_BARS   = 720
 FRESH_MAX_AGE_HOURS = 2.0
@@ -1056,7 +1076,7 @@ else:
                 ts = moex_tick_size(entry)
                 cost_ratio = (entry * COMMISSION_PCT * 2 + 2 * ts * SLIPPAGE_STEPS) / risk if risk > 0 else 0
                 hist_pf = _HISTORICAL_PF.get(sig["ticker"], 0.5)
-                lots = max(1, int(100.0 / risk)) if risk > 0 else 1
+                lots = _notify_lots(sig["ticker"], risk, entry)
                 _ntfy_open(sig, atr_val, cost_ratio, hist_pf, lots)
 
     _live_from_env = os.getenv("LIVE_TRADING", "0").strip() == "1"
@@ -1088,11 +1108,7 @@ else:
 
 # Step 4: Portfolio radar
 print("\n[RADAR] Building portfolio radar...")
-active_positions = positions if len(positions) > 0 else (load_positions() if len(positions) == 0 else positions)
-if len(active_positions) == 0 and len(all_new_signals) > 0:
-    active_positions = load_positions()
-elif len(active_positions) == 0 and len(closed_positions) == 0 and len(all_new_signals) == 0:
-    active_positions = load_positions()
+active_positions = positions if len(positions) > 0 else load_positions()
 
 radar_data = []
 if len(active_positions) > 0:

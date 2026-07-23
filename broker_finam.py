@@ -90,7 +90,10 @@ LIVE_TRADING    = os.getenv("LIVE_TRADING", "0").strip() == "1"
 # Для MOEX TQBR: шорт требует ГО ~12-15% от стоимости позиции.
 # При свободных средствах ~10 000 руб. и лимите 5 000 руб.:
 #   ГО = 5 000 × 15% = 750 руб. — безопасно для любого тикера.
-MAX_POSITION_VALUE_RUB = 5000
+try:
+    from config_trading import MAX_POSITION_VALUE_RUB
+except Exception:
+    MAX_POSITION_VALUE_RUB = 5000  # fallback, если config_trading недоступен
 
 # (EXCHANGE_PREFIX больше не используется — символы в формате TICKER@MIC)
 
